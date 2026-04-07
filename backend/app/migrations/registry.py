@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.app.domain.enums import CampaignStatus, EntityType, QueuedMessageState, ReplyState, SuppressionScope, TemplateBlockType
+from backend.app.domain.enums import (
+    CampaignStatus,
+    EntityType,
+    ImportJobStatus,
+    ImportRowResolution,
+    QueuedMessageState,
+    ReplyState,
+    SuppressionScope,
+    TemplateBlockType,
+)
 
 
 def sql_enum(values: list[str]) -> str:
@@ -17,6 +26,36 @@ REPLY_STATE_SQL = sql_enum([status.value for status in ReplyState])
 SUPPRESSION_SCOPE_SQL = sql_enum([scope.value for scope in SuppressionScope])
 TEMPLATE_BLOCK_TYPE_SQL = sql_enum([block_type.value for block_type in TemplateBlockType])
 ENTITY_TYPE_SQL = sql_enum([entity_type.value for entity_type in EntityType])
+IMPORT_JOB_STATUS_SQL = sql_enum([status.value for status in ImportJobStatus])
+IMPORT_ROW_RESOLUTION_SQL = sql_enum([resolution.value for resolution in ImportRowResolution])
+LEGACY_ENTITY_TYPE_SQL = sql_enum(
+    [
+        "lead",
+        "company",
+        "list",
+        "campaign",
+        "sequence",
+        "sequence_step",
+        "template",
+        "template_variant",
+        "template_block",
+        "offer_profile",
+        "vertical_playbook",
+        "queued_message",
+        "sent_message",
+        "reply",
+        "thread",
+        "provider_account",
+        "provider_mapping",
+        "booking_link",
+        "suppression_entry",
+        "generation_artifact",
+        "audit_event",
+        "webhook_event",
+        "settings_bundle",
+        "tag",
+    ]
+)
 
 
 @dataclass(frozen=True)
@@ -489,6 +528,310 @@ DROP TABLE IF EXISTS leads;
 DROP TABLE IF EXISTS companies;
 """,
     )
+    ,
+    MigrationDefinition(
+        version="0002_sprint_3_lead_warehouse",
+        description="Add import jobs, import row outcomes, and saved lead filters for Sprint 3.",
+        up_sql=f"""
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    import_format TEXT NOT NULL,
+    requested_by TEXT NOT NULL,
+    list_id INTEGER REFERENCES lists(id) ON DELETE SET NULL,
+    status TEXT NOT NULL CHECK (status IN ({IMPORT_JOB_STATUS_SQL})),
+    total_read INTEGER NOT NULL DEFAULT 0 CHECK (total_read >= 0),
+    inserted_count INTEGER NOT NULL DEFAULT 0 CHECK (inserted_count >= 0),
+    merged_count INTEGER NOT NULL DEFAULT 0 CHECK (merged_count >= 0),
+    skipped_count INTEGER NOT NULL DEFAULT 0 CHECK (skipped_count >= 0),
+    conflicting_count INTEGER NOT NULL DEFAULT 0 CHECK (conflicting_count >= 0),
+    manual_review_required_count INTEGER NOT NULL DEFAULT 0 CHECK (manual_review_required_count >= 0),
+    summary_json TEXT NOT NULL DEFAULT '{{}}',
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS import_job_rows (
+    id INTEGER PRIMARY KEY,
+    import_job_id INTEGER NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    row_number INTEGER NOT NULL CHECK (row_number > 0),
+    resolution TEXT NOT NULL CHECK (resolution IN ({IMPORT_ROW_RESOLUTION_SQL})),
+    dedupe_rule TEXT NOT NULL DEFAULT '',
+    lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+    company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
+    existing_lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+    raw_payload_json TEXT NOT NULL DEFAULT '{{}}',
+    normalized_payload_json TEXT NOT NULL DEFAULT '{{}}',
+    message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE(import_job_id, row_number)
+);
+
+CREATE TABLE IF NOT EXISTS saved_filters (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('lead')),
+    description TEXT NOT NULL DEFAULT '',
+    filter_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(name, entity_type)
+);
+""",
+        down_sql="""
+DROP TABLE IF EXISTS saved_filters;
+DROP TABLE IF EXISTS import_job_rows;
+DROP TABLE IF EXISTS import_jobs;
+""",
+    ),
+    MigrationDefinition(
+        version="0003_sprint_3_entity_type_constraints",
+        description="Refresh entity-type constrained tables so existing Sprint 2 databases accept Sprint 3 entity types.",
+        up_sql=f"""
+ALTER TABLE audit_events RENAME TO audit_events__old;
+CREATE TABLE audit_events (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({ENTITY_TYPE_SQL})),
+    entity_id INTEGER,
+    event_type TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{{}}',
+    created_at TEXT NOT NULL
+);
+INSERT INTO audit_events (id, entity_type, entity_id, event_type, actor, summary, payload_json, created_at)
+SELECT id, entity_type, entity_id, event_type, actor, summary, payload_json, created_at
+FROM audit_events__old;
+DROP TABLE audit_events__old;
+CREATE INDEX IF NOT EXISTS audit_events_entity_lookup
+    ON audit_events(entity_type, entity_id, created_at);
+
+ALTER TABLE provider_mappings RENAME TO provider_mappings__old;
+CREATE TABLE provider_mappings (
+    id INTEGER PRIMARY KEY,
+    provider_name TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({ENTITY_TYPE_SQL})),
+    internal_entity_id INTEGER NOT NULL,
+    external_id TEXT NOT NULL,
+    external_parent_id TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL DEFAULT '{{}}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(provider_name, entity_type, internal_entity_id),
+    UNIQUE(provider_name, entity_type, external_id)
+);
+INSERT INTO provider_mappings (
+    id, provider_name, entity_type, internal_entity_id, external_id, external_parent_id, payload_json, created_at, updated_at
+)
+SELECT
+    id, provider_name, entity_type, internal_entity_id, external_id, external_parent_id, payload_json, created_at, updated_at
+FROM provider_mappings__old;
+DROP TABLE provider_mappings__old;
+
+ALTER TABLE entity_tags RENAME TO entity_tags__old;
+CREATE TABLE entity_tags (
+    id INTEGER PRIMARY KEY,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({ENTITY_TYPE_SQL})),
+    entity_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(tag_id, entity_type, entity_id)
+);
+INSERT INTO entity_tags (id, tag_id, entity_type, entity_id, created_at)
+SELECT id, tag_id, entity_type, entity_id, created_at
+FROM entity_tags__old;
+DROP TABLE entity_tags__old;
+""",
+        down_sql=f"""
+ALTER TABLE entity_tags RENAME TO entity_tags__old;
+CREATE TABLE entity_tags (
+    id INTEGER PRIMARY KEY,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({LEGACY_ENTITY_TYPE_SQL})),
+    entity_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(tag_id, entity_type, entity_id)
+);
+INSERT INTO entity_tags (id, tag_id, entity_type, entity_id, created_at)
+SELECT id, tag_id, entity_type, entity_id, created_at
+FROM entity_tags__old
+WHERE entity_type IN ({LEGACY_ENTITY_TYPE_SQL});
+DROP TABLE entity_tags__old;
+
+ALTER TABLE provider_mappings RENAME TO provider_mappings__old;
+CREATE TABLE provider_mappings (
+    id INTEGER PRIMARY KEY,
+    provider_name TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({LEGACY_ENTITY_TYPE_SQL})),
+    internal_entity_id INTEGER NOT NULL,
+    external_id TEXT NOT NULL,
+    external_parent_id TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL DEFAULT '{{}}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(provider_name, entity_type, internal_entity_id),
+    UNIQUE(provider_name, entity_type, external_id)
+);
+INSERT INTO provider_mappings (
+    id, provider_name, entity_type, internal_entity_id, external_id, external_parent_id, payload_json, created_at, updated_at
+)
+SELECT
+    id, provider_name, entity_type, internal_entity_id, external_id, external_parent_id, payload_json, created_at, updated_at
+FROM provider_mappings__old
+WHERE entity_type IN ({LEGACY_ENTITY_TYPE_SQL});
+DROP TABLE provider_mappings__old;
+
+ALTER TABLE audit_events RENAME TO audit_events__old;
+CREATE TABLE audit_events (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ({LEGACY_ENTITY_TYPE_SQL})),
+    entity_id INTEGER,
+    event_type TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{{}}',
+    created_at TEXT NOT NULL
+);
+INSERT INTO audit_events (id, entity_type, entity_id, event_type, actor, summary, payload_json, created_at)
+SELECT id, entity_type, entity_id, event_type, actor, summary, payload_json, created_at
+FROM audit_events__old
+WHERE entity_type IN ({LEGACY_ENTITY_TYPE_SQL});
+DROP TABLE audit_events__old;
+CREATE INDEX IF NOT EXISTS audit_events_entity_lookup
+    ON audit_events(entity_type, entity_id, created_at);
+""",
+    ),
+    MigrationDefinition(
+        version="0004_sprint_4_generation_studio",
+        description="Add traceable generation metadata and richer template block fields for Sprint 4.",
+        up_sql=f"""
+ALTER TABLE template_blocks RENAME TO template_blocks__old;
+CREATE TABLE template_blocks (
+    id INTEGER PRIMARY KEY,
+    template_id INTEGER NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    template_variant_id INTEGER REFERENCES template_variants(id) ON DELETE CASCADE,
+    block_key TEXT NOT NULL,
+    block_type TEXT NOT NULL CHECK (block_type IN ({TEMPLATE_BLOCK_TYPE_SQL})),
+    section TEXT NOT NULL DEFAULT 'body',
+    content TEXT NOT NULL DEFAULT '',
+    fallback_content TEXT NOT NULL DEFAULT '',
+    rules_json TEXT NOT NULL DEFAULT '{{}}',
+    position INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
+    is_required INTEGER NOT NULL DEFAULT 1 CHECK (is_required IN (0, 1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+INSERT INTO template_blocks (
+    id,
+    template_id,
+    template_variant_id,
+    block_key,
+    block_type,
+    section,
+    content,
+    fallback_content,
+    rules_json,
+    position,
+    is_required,
+    created_at,
+    updated_at
+)
+SELECT
+    id,
+    template_id,
+    template_variant_id,
+    block_key,
+    block_type,
+    CASE
+        WHEN lower(block_key) LIKE 'subject%' THEN 'subject'
+        ELSE 'body'
+    END,
+    content,
+    '',
+    '{{}}',
+    position,
+    is_required,
+    created_at,
+    updated_at
+FROM template_blocks__old;
+DROP TABLE template_blocks__old;
+CREATE UNIQUE INDEX IF NOT EXISTS template_blocks_unique_key
+    ON template_blocks(template_id, ifnull(template_variant_id, 0), block_key);
+
+ALTER TABLE generation_artifacts ADD COLUMN template_id INTEGER;
+ALTER TABLE generation_artifacts ADD COLUMN template_variant_id INTEGER;
+ALTER TABLE generation_artifacts ADD COLUMN lead_id INTEGER;
+ALTER TABLE generation_artifacts ADD COLUMN source_artifact_id INTEGER;
+CREATE INDEX IF NOT EXISTS generation_artifacts_recent_lookup
+    ON generation_artifacts(updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS generation_artifacts_template_lookup
+    ON generation_artifacts(template_id, template_variant_id, lead_id);
+""",
+        down_sql=f"""
+DROP INDEX IF EXISTS generation_artifacts_template_lookup;
+DROP INDEX IF EXISTS generation_artifacts_recent_lookup;
+
+ALTER TABLE template_blocks RENAME TO template_blocks__old;
+CREATE TABLE template_blocks (
+    id INTEGER PRIMARY KEY,
+    template_id INTEGER NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    template_variant_id INTEGER REFERENCES template_variants(id) ON DELETE CASCADE,
+    block_key TEXT NOT NULL,
+    block_type TEXT NOT NULL CHECK (block_type IN ({TEMPLATE_BLOCK_TYPE_SQL})),
+    content TEXT NOT NULL DEFAULT '',
+    position INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
+    is_required INTEGER NOT NULL DEFAULT 1 CHECK (is_required IN (0, 1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+INSERT INTO template_blocks (
+    id,
+    template_id,
+    template_variant_id,
+    block_key,
+    block_type,
+    content,
+    position,
+    is_required,
+    created_at,
+    updated_at
+)
+SELECT
+    id,
+    template_id,
+    template_variant_id,
+    block_key,
+    block_type,
+    content,
+    position,
+    is_required,
+    created_at,
+    updated_at
+FROM template_blocks__old;
+DROP TABLE template_blocks__old;
+CREATE UNIQUE INDEX IF NOT EXISTS template_blocks_unique_key
+    ON template_blocks(template_id, ifnull(template_variant_id, 0), block_key);
+""",
+    ),
+    MigrationDefinition(
+        version="0005_sprint_5_campaign_preview_indexes",
+        description="Add preview-oriented indexes for campaigns, queued messages, and provider assignment.",
+        up_sql="""
+CREATE INDEX IF NOT EXISTS queued_messages_campaign_schedule_lookup
+    ON queued_messages(campaign_id, state, scheduled_for, id);
+CREATE INDEX IF NOT EXISTS campaign_audience_snapshots_campaign_lookup
+    ON campaign_audience_snapshots(campaign_id, lead_id);
+CREATE INDEX IF NOT EXISTS provider_accounts_status_lookup
+    ON provider_accounts(provider_name, status, daily_cap, id);
+""",
+        down_sql="""
+DROP INDEX IF EXISTS provider_accounts_status_lookup;
+DROP INDEX IF EXISTS campaign_audience_snapshots_campaign_lookup;
+DROP INDEX IF EXISTS queued_messages_campaign_schedule_lookup;
+""",
+    ),
 ]
 
 LATEST_MIGRATION_VERSION = MIGRATIONS[-1].version

@@ -1,7 +1,32 @@
 """Domain-level enums, transitions, and typed creation models."""
 
-from backend.app.domain.enums import CampaignStatus, QueuedMessageState, ReplyState
-from backend.app.domain.models import AuditEventCreate, CampaignCreate, LeadCreate, QueuedMessageCreate, ReplyCreate
+from backend.app.domain.enums import (
+    CampaignStatus,
+    GenerationValidationStatus,
+    ImportJobStatus,
+    ImportRowResolution,
+    QueuedMessageState,
+    ReplyState,
+)
+from backend.app.domain.models import (
+    AuditEventCreate,
+    CampaignAudienceSnapshotCreate,
+    CampaignCreate,
+    GenerationArtifactCreate,
+    ImportJobCreate,
+    LeadCreate,
+    OfferProfileCreate,
+    ProviderAccountCreate,
+    QueuedMessageCreate,
+    ReplyCreate,
+    SavedFilterCreate,
+    SequenceCreate,
+    SequenceStepCreate,
+    TemplateBlockCreate,
+    TemplateCreate,
+    TemplateVariantCreate,
+    VerticalPlaybookCreate,
+)
 from backend.app.domain.transitions import (
     InvalidStateTransition,
     assert_valid_campaign_transition,
@@ -11,14 +36,29 @@ from backend.app.domain.transitions import (
 
 __all__ = [
     "AuditEventCreate",
+    "CampaignAudienceSnapshotCreate",
     "CampaignCreate",
     "CampaignStatus",
+    "GenerationArtifactCreate",
+    "GenerationValidationStatus",
+    "ImportJobCreate",
+    "ImportJobStatus",
+    "ImportRowResolution",
     "InvalidStateTransition",
     "LeadCreate",
+    "OfferProfileCreate",
+    "ProviderAccountCreate",
     "QueuedMessageCreate",
     "QueuedMessageState",
     "ReplyCreate",
     "ReplyState",
+    "SavedFilterCreate",
+    "SequenceCreate",
+    "SequenceStepCreate",
+    "TemplateBlockCreate",
+    "TemplateCreate",
+    "TemplateVariantCreate",
+    "VerticalPlaybookCreate",
     "assert_valid_campaign_transition",
     "assert_valid_queued_message_transition",
     "assert_valid_reply_transition",

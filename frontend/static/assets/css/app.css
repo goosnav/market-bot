@@ -322,7 +322,8 @@ h3 {
 .definition-grid,
 .schema-list,
 .provider-grid,
-.check-grid {
+.check-grid,
+.form-grid {
   display: grid;
   gap: 0.8rem;
 }
@@ -331,7 +332,8 @@ h3 {
 .definition-item,
 .schema-item,
 .provider-item,
-.check-item {
+.check-item,
+.form-field {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(107, 153, 176, 0.14);
   border-radius: 1rem;
@@ -442,6 +444,65 @@ h3 {
   margin-top: 1rem;
 }
 
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.form-field span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.form-field-wide {
+  grid-column: 1 / -1;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  background: var(--bg-strong);
+  border: 1px solid rgba(107, 153, 176, 0.18);
+  border-radius: 0.9rem;
+  color: var(--text);
+  font: inherit;
+  min-height: 2.9rem;
+  padding: 0.8rem 0.9rem;
+  width: 100%;
+}
+
+.form-field textarea {
+  min-height: 10rem;
+  resize: vertical;
+}
+
+.form-field select[multiple] {
+  min-height: 8.5rem;
+}
+
+.form-toggle {
+  align-items: center;
+  grid-template-columns: auto 1fr;
+}
+
+.form-toggle input {
+  accent-color: var(--accent);
+  min-height: auto;
+  width: 1.1rem;
+}
+
+.form-toggle span {
+  color: var(--text);
+}
+
+.compact-form {
+  margin-top: 1rem;
+}
+
 .code-block {
   background: var(--bg-strong);
   border: 1px solid rgba(107, 153, 176, 0.18);
@@ -490,6 +551,10 @@ h3 {
   }
 
   .check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }

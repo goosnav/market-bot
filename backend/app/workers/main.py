@@ -1,4 +1,4 @@
-"""Dedicated worker shell for the Sprint 1 runtime."""
+"""Dedicated worker shell for the Sprint 5 runtime."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def utc_now() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the Market Bot Sprint 1 worker shell.")
+    parser = argparse.ArgumentParser(description="Run the Market Bot Sprint 5 worker shell.")
     parser.add_argument("--app-root", default=None)
     parser.add_argument("--config", default=None)
     args = parser.parse_args(argv)
@@ -84,4 +84,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

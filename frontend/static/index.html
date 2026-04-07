@@ -23,8 +23,8 @@
         <p class="eyebrow">Portable Local Runtime</p>
         <h1>Market Bot control shell</h1>
         <p class="lede">
-          Sprint 2 locks the persistence layer: versioned schema migrations, explicit workflow states,
-          runtime diagnostics, and audit-ready local storage.
+          Sprint 5 turns the preview into the product core: campaign assembly, audience snapshots, exact queue
+          rows, provider assignment, manual edits, targeted regeneration, and explicit launch-ready approval.
         </p>
       </div>
       <div class="hero-actions">
@@ -54,6 +54,9 @@
 
     <nav class="route-bar reveal" aria-label="Primary sections" style="--delay: 0.22s;">
       <a class="route-link" href="#/dashboard" data-route="dashboard">Dashboard</a>
+      <a class="route-link" href="#/warehouse" data-route="warehouse">Warehouse</a>
+      <a class="route-link" href="#/studio" data-route="studio">Studio</a>
+      <a class="route-link" href="#/campaigns" data-route="campaigns">Campaigns</a>
       <a class="route-link" href="#/health" data-route="health">Health</a>
       <a class="route-link" href="#/settings" data-route="settings">Settings</a>
       <a class="route-link" href="#/diagnostics" data-route="diagnostics">Diagnostics</a>
@@ -94,6 +97,490 @@
               <h2>Credential posture</h2>
             </div>
             <div id="providerList" class="provider-grid"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-warehouse" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Lead Warehouse</p>
+              <h2>Master lead summary</h2>
+            </div>
+            <div id="warehouseSummary" class="check-grid"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Recent Activity</p>
+              <h2>Import jobs</h2>
+            </div>
+            <p id="warehouseNotice" class="timestamp">No warehouse actions yet.</p>
+            <div id="importJobs" class="stack-list"></div>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.4s;">
+            <div class="section-head">
+              <p class="eyebrow">CSV Import</p>
+              <h2>Import a list</h2>
+            </div>
+            <form id="csvImportForm" class="form-grid">
+              <label class="form-field">
+                <span>List name</span>
+                <input id="csvListName" type="text" value="Local CSV Import">
+              </label>
+              <label class="form-field">
+                <span>Source label</span>
+                <input id="csvSource" type="text" value="csv">
+              </label>
+              <label class="form-field form-field-wide">
+                <span>CSV rows</span>
+                <textarea id="csvImportText">full_name,email,company,domain,title
+Jordan Smith,jordan@acme.example,Acme Manufacturing,acme.example,Owner</textarea>
+              </label>
+              <button class="button button-primary" type="submit">Import CSV</button>
+            </form>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.46s;">
+            <div class="section-head">
+              <p class="eyebrow">Manual Entry</p>
+              <h2>Add a lead</h2>
+            </div>
+            <form id="manualLeadForm" class="form-grid">
+              <label class="form-field">
+                <span>Full name</span>
+                <input id="manualFullName" type="text" value="Avery Stone">
+              </label>
+              <label class="form-field">
+                <span>Email</span>
+                <input id="manualEmail" type="email" value="avery@forge.example">
+              </label>
+              <label class="form-field">
+                <span>Company</span>
+                <input id="manualCompany" type="text" value="Forge Works">
+              </label>
+              <label class="form-field">
+                <span>Domain</span>
+                <input id="manualDomain" type="text" value="forge.example">
+              </label>
+              <label class="form-field">
+                <span>Title</span>
+                <input id="manualTitle" type="text" value="Founder">
+              </label>
+              <label class="form-field">
+                <span>List name</span>
+                <input id="manualListName" type="text" value="Manual Leads">
+              </label>
+              <button class="button button-primary" type="submit">Add Lead</button>
+            </form>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.52s;">
+            <div class="section-head">
+              <p class="eyebrow">Saved Filters</p>
+              <h2>Current filters</h2>
+            </div>
+            <div id="savedFilters" class="stack-list"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.58s;">
+            <div class="section-head">
+              <p class="eyebrow">Lead Preview</p>
+              <h2>Recent leads</h2>
+            </div>
+            <div id="warehouseLeads" class="stack-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-studio" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Sprint 4</p>
+              <h2>Generation studio</h2>
+            </div>
+            <div id="studioSummary" class="check-grid"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Last Preview</p>
+              <h2>Artifact activity</h2>
+            </div>
+            <p id="studioNotice" class="timestamp">No generation artifacts yet.</p>
+            <div id="studioArtifacts" class="stack-list"></div>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.4s;">
+            <div class="section-head">
+              <p class="eyebrow">Offer Profile</p>
+              <h2>Create an offer</h2>
+            </div>
+            <form id="offerProfileForm" class="form-grid">
+              <label class="form-field">
+                <span>Name</span>
+                <input id="offerName" type="text" value="AI Follow-Up Audit">
+              </label>
+              <label class="form-field">
+                <span>Value proposition</span>
+                <input id="offerValueProp" type="text" value="a tighter outbound follow-up workflow">
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Standard CTA</span>
+                <input id="offerCta" type="text" value="Open to a quick 15-minute walkthrough next week?">
+              </label>
+              <label class="form-field">
+                <span>Allowed claims</span>
+                <textarea id="offerAllowedClaims">short audit
+specific workflow recommendations</textarea>
+              </label>
+              <label class="form-field">
+                <span>Banned phrases</span>
+                <textarea id="offerDisallowedClaims">guaranteed results
+200% lift</textarea>
+              </label>
+              <button class="button button-primary" type="submit">Save Offer</button>
+            </form>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.46s;">
+            <div class="section-head">
+              <p class="eyebrow">Vertical Playbook</p>
+              <h2>Create a playbook</h2>
+            </div>
+            <form id="playbookForm" class="form-grid">
+              <label class="form-field">
+                <span>Name</span>
+                <input id="playbookName" type="text" value="Manufacturing">
+              </label>
+              <label class="form-field">
+                <span>Tone profile</span>
+                <input id="playbookTone" type="text" value="direct">
+              </label>
+              <label class="form-field">
+                <span>Target pains</span>
+                <textarea id="playbookPains">slow follow-up
+manual list triage</textarea>
+              </label>
+              <label class="form-field">
+                <span>Subject patterns</span>
+                <textarea id="playbookSubjects">Quick idea for {{ company.name }}
+{{ company.name }} and follow-up</textarea>
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Disallowed language</span>
+                <textarea id="playbookDisallowedLanguage">guaranteed
+instant results</textarea>
+              </label>
+              <button class="button button-primary" type="submit">Save Playbook</button>
+            </form>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.52s;">
+            <div class="section-head">
+              <p class="eyebrow">Template Pack</p>
+              <h2>Create a renderable template</h2>
+            </div>
+            <form id="templateForm" class="form-grid">
+              <label class="form-field">
+                <span>Template name</span>
+                <input id="templateName" type="text" value="Controlled Outreach">
+              </label>
+              <label class="form-field">
+                <span>Description</span>
+                <input id="templateDescription" type="text" value="Merged intro, bounded AI hook, explicit CTA.">
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Subject line</span>
+                <input id="templateSubject" type="text" value="Quick idea for {{ company.name }}">
+              </label>
+              <label class="form-field">
+                <span>Intro line</span>
+                <textarea id="templateIntro">Hi {{ lead.full_name }}, I noticed {{ company.name }} and wanted to share one idea.</textarea>
+              </label>
+              <label class="form-field">
+                <span>AI hook instruction</span>
+                <textarea id="templateAiInstruction">short company-specific hook for {{ company.name }}</textarea>
+              </label>
+              <label class="form-field">
+                <span>AI fallback</span>
+                <textarea id="templateAiFallback">Wanted to share one concrete idea for {{ company.name }}.</textarea>
+              </label>
+              <label class="form-field">
+                <span>Offer line</span>
+                <textarea id="templateOfferLine">We help teams like {{ company.name }} with {{ offer.value_proposition }}.</textarea>
+              </label>
+              <label class="form-field">
+                <span>CTA line</span>
+                <textarea id="templateCtaLine">{{ offer.standard_cta }}</textarea>
+              </label>
+              <button class="button button-primary" type="submit">Save Template</button>
+            </form>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.58s;">
+            <div class="section-head">
+              <p class="eyebrow">Preview Engine</p>
+              <h2>Render and regenerate</h2>
+            </div>
+            <form id="renderForm" class="form-grid">
+              <label class="form-field">
+                <span>Lead</span>
+                <select id="renderLeadId"></select>
+              </label>
+              <label class="form-field">
+                <span>Template</span>
+                <select id="renderTemplateId"></select>
+              </label>
+              <label class="form-field">
+                <span>Offer profile</span>
+                <select id="renderOfferId"></select>
+              </label>
+              <label class="form-field">
+                <span>Playbook</span>
+                <select id="renderPlaybookId"></select>
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Disabled AI blocks</span>
+                <input id="renderDisabledBlocks" type="text" placeholder="body_hook,body_followup">
+              </label>
+              <label class="form-toggle form-field-wide">
+                <input id="renderDeterministic" type="checkbox">
+                <span>Deterministic mode: render fallbacks instead of AI blocks</span>
+              </label>
+              <button class="button button-primary" type="submit">Render Preview</button>
+            </form>
+
+            <form id="regenerateForm" class="form-grid compact-form">
+              <label class="form-field">
+                <span>Artifact</span>
+                <select id="regenerateArtifactId"></select>
+              </label>
+              <label class="form-field form-field-wide">
+                <span>AI block keys to regenerate</span>
+                <input id="regenerateBlockKeys" type="text" placeholder="body_hook">
+              </label>
+              <button class="button" type="submit">Regenerate Selected Blocks</button>
+            </form>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.64s;">
+            <div class="section-head">
+              <p class="eyebrow">Library</p>
+              <h2>Templates and offers</h2>
+            </div>
+            <div id="studioTemplates" class="stack-list"></div>
+            <div id="studioOffers" class="stack-list"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.7s;">
+            <div class="section-head">
+              <p class="eyebrow">Messaging Guardrails</p>
+              <h2>Playbooks</h2>
+            </div>
+            <div id="studioPlaybooks" class="stack-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-campaigns" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Sprint 5</p>
+              <h2>Campaign builder</h2>
+            </div>
+            <div id="campaignSummary" class="check-grid"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Latest Preview</p>
+              <h2>Queue posture</h2>
+            </div>
+            <p id="campaignNotice" class="timestamp">No campaign previews yet.</p>
+            <div id="campaignList" class="stack-list"></div>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.4s;">
+            <div class="section-head">
+              <p class="eyebrow">Provider Pool</p>
+              <h2>Create a sending account</h2>
+            </div>
+            <form id="providerAccountForm" class="form-grid">
+              <label class="form-field">
+                <span>Display name</span>
+                <input id="providerDisplayName" type="text" value="Primary Pool">
+              </label>
+              <label class="form-field">
+                <span>Email address</span>
+                <input id="providerEmailAddress" type="email" value="pool@example.com">
+              </label>
+              <label class="form-field">
+                <span>Provider name</span>
+                <input id="providerName" type="text" value="manual">
+              </label>
+              <label class="form-field">
+                <span>Daily cap</span>
+                <input id="providerDailyCap" type="number" min="0" value="0">
+              </label>
+              <button class="button button-primary" type="submit">Save Provider Account</button>
+            </form>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.46s;">
+            <div class="section-head">
+              <p class="eyebrow">Audience + Sequence</p>
+              <h2>Build a preview campaign</h2>
+            </div>
+            <form id="campaignBuildForm" class="form-grid">
+              <label class="form-field">
+                <span>Campaign name</span>
+                <input id="campaignName" type="text" value="Manufacturing Follow-Up Sprint">
+              </label>
+              <label class="form-field">
+                <span>Timezone</span>
+                <input id="campaignTimezone" type="text" value="UTC">
+              </label>
+              <label class="form-field">
+                <span>Saved filter</span>
+                <select id="campaignSavedFilterId"></select>
+              </label>
+              <label class="form-field">
+                <span>Offer profile</span>
+                <select id="campaignOfferId"></select>
+              </label>
+              <label class="form-field">
+                <span>Playbook</span>
+                <select id="campaignPlaybookId"></select>
+              </label>
+              <label class="form-field">
+                <span>Provider accounts</span>
+                <select id="campaignProviderAccountIds" multiple size="4"></select>
+              </label>
+              <label class="form-field">
+                <span>Step 1 template</span>
+                <select id="campaignStepOneTemplateId"></select>
+              </label>
+              <label class="form-field">
+                <span>Step 1 delay days</span>
+                <input id="campaignStepOneDelayDays" type="number" min="0" value="0">
+              </label>
+              <label class="form-field">
+                <span>Step 2 template</span>
+                <select id="campaignStepTwoTemplateId"></select>
+              </label>
+              <label class="form-field">
+                <span>Step 2 delay days</span>
+                <input id="campaignStepTwoDelayDays" type="number" min="0" value="2">
+              </label>
+              <label class="form-field">
+                <span>Start at</span>
+                <input id="campaignStartAt" type="text" value="2026-04-06T09:00:00+00:00">
+              </label>
+              <label class="form-field">
+                <span>Approval mode</span>
+                <select id="campaignApprovalMode">
+                  <option value="manual" selected>Manual</option>
+                  <option value="auto">Auto</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>Reply mode</span>
+                <select id="campaignReplyMode">
+                  <option value="manual" selected>Manual</option>
+                  <option value="stop_on_reply">Stop On Reply</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>Send window start</span>
+                <input id="campaignSendWindowStart" type="number" min="0" max="23" value="9">
+              </label>
+              <label class="form-field">
+                <span>Send window end</span>
+                <input id="campaignSendWindowEnd" type="number" min="1" max="24" value="17">
+              </label>
+              <label class="form-field">
+                <span>Quiet hours start</span>
+                <input id="campaignQuietHoursStart" type="number" min="0" max="23" value="20">
+              </label>
+              <label class="form-field">
+                <span>Quiet hours end</span>
+                <input id="campaignQuietHoursEnd" type="number" min="0" max="23" value="8">
+              </label>
+              <button class="button button-primary form-field-wide" type="submit">Build Preview Queue</button>
+            </form>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.52s;">
+            <div class="section-head">
+              <p class="eyebrow">Exact Preview</p>
+              <h2>Queued messages</h2>
+            </div>
+            <label class="form-field">
+              <span>Selected campaign</span>
+              <select id="campaignPreviewCampaignId"></select>
+            </label>
+            <div id="campaignPreviewRows" class="stack-list"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.58s;">
+            <div class="section-head">
+              <p class="eyebrow">Preview Controls</p>
+              <h2>Edit, regenerate, approve</h2>
+            </div>
+            <form id="campaignPreviewEditForm" class="form-grid">
+              <label class="form-field">
+                <span>Queued row</span>
+                <select id="campaignPreviewMessageId"></select>
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Edited subject</span>
+                <input id="campaignEditedSubject" type="text" placeholder="Optional subject override">
+              </label>
+              <label class="form-field form-field-wide">
+                <span>Edited body</span>
+                <textarea id="campaignEditedBody" placeholder="Optional final body override"></textarea>
+              </label>
+              <button class="button button-primary" type="submit">Save Manual Edit</button>
+            </form>
+
+            <form id="campaignPreviewRegenerateForm" class="form-grid compact-form">
+              <label class="form-field">
+                <span>Queued row</span>
+                <select id="campaignRegenerateMessageId"></select>
+              </label>
+              <label class="form-field form-field-wide">
+                <span>AI block keys</span>
+                <input id="campaignRegenerateBlockKeys" type="text" value="body_hook">
+              </label>
+              <button class="button" type="submit">Regenerate AI Block</button>
+            </form>
+
+            <form id="campaignApproveForm" class="form-grid compact-form">
+              <label class="form-field">
+                <span>Campaign</span>
+                <select id="campaignApproveId"></select>
+              </label>
+              <button class="button button-primary" type="submit">Approve Preview</button>
+            </form>
           </article>
         </div>
       </section>

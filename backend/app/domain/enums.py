@@ -57,6 +57,8 @@ class EntityType(StrEnum):
     LEAD = "lead"
     COMPANY = "company"
     LIST = "list"
+    IMPORT_JOB = "import_job"
+    SAVED_FILTER = "saved_filter"
     CAMPAIGN = "campaign"
     SEQUENCE = "sequence"
     SEQUENCE_STEP = "sequence_step"
@@ -79,3 +81,24 @@ class EntityType(StrEnum):
     SETTINGS_BUNDLE = "settings_bundle"
     TAG = "tag"
 
+
+class ImportJobStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ImportRowResolution(StrEnum):
+    INSERTED = "inserted"
+    MERGED = "merged"
+    SKIPPED = "skipped"
+    CONFLICTING = "conflicting"
+    MANUAL_REVIEW_REQUIRED = "manual_review_required"
+
+
+class GenerationValidationStatus(StrEnum):
+    PENDING = "pending"
+    PASSED = "passed"
+    WARNING = "warning"
+    BLOCKED = "blocked"

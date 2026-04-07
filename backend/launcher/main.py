@@ -46,7 +46,7 @@ def utc_now() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Start the Market Bot Sprint 1 local shell.")
+    parser = argparse.ArgumentParser(description="Start the Market Bot Sprint 5 local shell.")
     parser.add_argument("command", nargs="?", default="start", choices=["start"])
     parser.add_argument("--app-root", default=None)
     parser.add_argument("--config", default=None)

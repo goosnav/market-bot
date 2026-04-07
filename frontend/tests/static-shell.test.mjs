@@ -19,6 +19,9 @@ test("index references local assets and core views", () => {
   assert.match(html, /href="\/assets\/css\/app\.css"/);
   assert.match(html, /src="\/assets\/js\/app\.js"/);
   assert.match(html, /id="view-dashboard"/);
+  assert.match(html, /id="view-warehouse"/);
+  assert.match(html, /id="view-studio"/);
+  assert.match(html, /id="view-campaigns"/);
   assert.match(html, /id="view-health"/);
   assert.match(html, /id="view-settings"/);
   assert.match(html, /id="view-diagnostics"/);
@@ -32,6 +35,22 @@ test("frontend script targets runtime endpoints", () => {
   assert.match(script, /\/api\/v1\/diagnostics\/runtime/);
   assert.match(script, /\/api\/v1\/settings\/effective/);
   assert.match(script, /\/api\/v1\/settings\/schema/);
+  assert.match(script, /\/api\/v1\/warehouse\/summary/);
+  assert.match(script, /\/api\/v1\/warehouse\/imports\/csv/);
+  assert.match(script, /\/api\/v1\/warehouse\/leads\/manual/);
+  assert.match(script, /\/api\/v1\/studio\/summary/);
+  assert.match(script, /\/api\/v1\/studio\/offers/);
+  assert.match(script, /\/api\/v1\/studio\/playbooks/);
+  assert.match(script, /\/api\/v1\/studio\/templates/);
+  assert.match(script, /\/api\/v1\/studio\/render/);
+  assert.match(script, /\/api\/v1\/studio\/regenerate/);
+  assert.match(script, /\/api\/v1\/campaigns\/summary/);
+  assert.match(script, /\/api\/v1\/campaigns\/preview/);
+  assert.match(script, /\/api\/v1\/campaigns\/providers\/accounts/);
+  assert.match(script, /\/api\/v1\/campaigns\/build/);
+  assert.match(script, /\/api\/v1\/campaigns\/preview\/edit/);
+  assert.match(script, /\/api\/v1\/campaigns\/preview\/regenerate/);
+  assert.match(script, /\/api\/v1\/campaigns\/preview\/approve/);
 });
 
 test("frontend stylesheet includes theme tokens and responsive layout", () => {

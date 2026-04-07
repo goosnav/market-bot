@@ -1,9 +1,9 @@
 [project]
 name = "market-bot"
-version = "0.2.0"
-description = "Portable local-first outbound marketing workstation with Sprint 2 persistence layer"
+version = "0.5.0"
+description = "Portable local-first outbound marketing workstation with Sprint 5 campaign preview tooling"
 requires-python = ">=3.12"
 
 [tool.market-bot]
-sprint = "2"
-stack_rationale = "dependency-free sprint-2 persistence layer with versioned SQLite migrations and explicit state machines"
+sprint = "5"
+stack_rationale = "dependency-free sprint-5 campaign builder with exact queue preview, audience snapshots, and launch-ready approval"

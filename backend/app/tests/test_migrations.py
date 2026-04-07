@@ -18,7 +18,7 @@ from backend.app.tests.support import DatabaseTestCase
 
 class MigrationTests(DatabaseTestCase):
     def test_bootstrap_applies_latest_domain_schema(self) -> None:
-        summary = bootstrap_database(self.database_path, "0.2.0")
+        summary = bootstrap_database(self.database_path, "0.5.0")
         self.assertEqual(summary["schema_version"], LATEST_MIGRATION_VERSION)
 
         with connect_database(self.database_path) as connection:
@@ -42,6 +42,25 @@ class MigrationTests(DatabaseTestCase):
         with connect_database(self.database_path) as connection:
             self.assertEqual(get_current_schema_version(connection), LATEST_MIGRATION_VERSION)
             self.assertIn("campaigns", inspect_table_names(connection))
+
+    def test_sprint_4_migration_adds_generation_trace_columns(self) -> None:
+        with connect_database(self.database_path) as connection:
+            template_block_columns = {
+                row["name"]: row
+                for row in connection.execute("PRAGMA table_info(template_blocks)").fetchall()
+            }
+            artifact_columns = {
+                row["name"]: row
+                for row in connection.execute("PRAGMA table_info(generation_artifacts)").fetchall()
+            }
+
+        self.assertIn("section", template_block_columns)
+        self.assertIn("fallback_content", template_block_columns)
+        self.assertIn("rules_json", template_block_columns)
+        self.assertIn("template_id", artifact_columns)
+        self.assertIn("template_variant_id", artifact_columns)
+        self.assertIn("lead_id", artifact_columns)
+        self.assertIn("source_artifact_id", artifact_columns)
 
     def test_unique_step_order_constraint_is_enforced(self) -> None:
         with connect_database(self.database_path) as connection:
