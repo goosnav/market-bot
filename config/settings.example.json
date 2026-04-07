@@ -1,0 +1,59 @@
+{
+  "app": {
+    "name": "Market Bot",
+    "version": "0.1.0",
+    "environment": "local",
+    "support_email": "ops@example.com"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "preferred_port": 8765,
+    "port_search_limit": 20,
+    "open_browser": true
+  },
+  "paths": {
+    "data_dir": "data",
+    "logs_dir": "logs",
+    "exports_dir": "exports",
+    "cache_dir": "cache",
+    "runtime_dir": "runtime",
+    "database_path": "app.db",
+    "frontend_dir": "frontend/static"
+  },
+  "logging": {
+    "level": "INFO",
+    "redact_keys": [
+      "api_key",
+      "secret",
+      "token",
+      "password"
+    ]
+  },
+  "ui": {
+    "default_route": "#/dashboard",
+    "startup_failure_page": "startup-error.html"
+  },
+  "providers": {
+    "apollo": {
+      "enabled": false,
+      "api_key": ""
+    },
+    "sending": {
+      "enabled": false,
+      "api_key": ""
+    },
+    "llm": {
+      "enabled": false,
+      "api_key": ""
+    }
+  },
+  "booking": {
+    "default_link": "https://calendar.google.com/calendar/appointments/schedules/example"
+  },
+  "worker": {
+    "heartbeat_interval_seconds": 2,
+    "stale_after_seconds": 8,
+    "shutdown_grace_seconds": 5
+  }
+}
+

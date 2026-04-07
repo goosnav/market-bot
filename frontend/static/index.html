@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market Bot Local Shell</title>
+  <meta
+    name="description"
+    content="Local-first outbound marketing workstation shell with runtime health, diagnostics, and settings visibility."
+  >
+  <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="mesh"></div>
+  </div>
+
+  <main class="shell">
+    <header class="hero panel reveal" style="--delay: 0.06s;">
+      <div class="hero-copy">
+        <p class="eyebrow">Portable Local Runtime</p>
+        <h1>Market Bot control shell</h1>
+        <p class="lede">
+          Sprint 1 focuses on a trustworthy local launch surface: browser shell, runtime health, startup
+          diagnostics, and redacted settings inspection.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <button id="refreshButton" class="button button-primary" type="button">Refresh diagnostics</button>
+        <p id="lastUpdated" class="timestamp">Waiting for the first runtime snapshot.</p>
+      </div>
+    </header>
+
+    <section class="status-strip reveal" aria-label="Runtime summary" style="--delay: 0.14s;">
+      <article class="status-card panel">
+        <span class="status-label">Backend</span>
+        <strong id="liveStatus" class="status-pill status-unknown">Checking</strong>
+      </article>
+      <article class="status-card panel">
+        <span class="status-label">Shell readiness</span>
+        <strong id="readyStatus" class="status-pill status-unknown">Checking</strong>
+      </article>
+      <article class="status-card panel">
+        <span class="status-label">Version</span>
+        <strong id="versionValue" class="metric">Loading</strong>
+      </article>
+      <article class="status-card panel">
+        <span class="status-label">Port</span>
+        <strong id="portValue" class="metric">Loading</strong>
+      </article>
+    </section>
+
+    <nav class="route-bar reveal" aria-label="Primary sections" style="--delay: 0.22s;">
+      <a class="route-link" href="#/dashboard" data-route="dashboard">Dashboard</a>
+      <a class="route-link" href="#/health" data-route="health">Health</a>
+      <a class="route-link" href="#/settings" data-route="settings">Settings</a>
+      <a class="route-link" href="#/diagnostics" data-route="diagnostics">Diagnostics</a>
+    </nav>
+
+    <section class="content-grid">
+      <section id="view-dashboard" class="view view-active">
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Launch Overview</p>
+              <h2>Runtime snapshot</h2>
+            </div>
+            <div id="launchSummary" class="stack-list"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Execution Surface</p>
+              <h2>Critical checks</h2>
+            </div>
+            <div id="checkGrid" class="check-grid"></div>
+          </article>
+        </div>
+
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.4s;">
+            <div class="section-head">
+              <p class="eyebrow">Storage</p>
+              <h2>Resolved paths</h2>
+            </div>
+            <div id="pathList" class="definition-grid"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.46s;">
+            <div class="section-head">
+              <p class="eyebrow">Providers</p>
+              <h2>Credential posture</h2>
+            </div>
+            <div id="providerList" class="provider-grid"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-health" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Backend</p>
+              <h2>Service health</h2>
+            </div>
+            <div id="healthSummary" class="stack-list"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Worker</p>
+              <h2>Heartbeat state</h2>
+            </div>
+            <div id="workerSummary" class="stack-list"></div>
+          </article>
+        </div>
+
+        <article class="panel reveal" style="--delay: 0.4s;">
+          <div class="section-head">
+            <p class="eyebrow">Failures</p>
+            <h2>Readiness blockers</h2>
+          </div>
+          <ul id="failedChecks" class="chip-list"></ul>
+        </article>
+      </section>
+
+      <section id="view-settings" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Effective Config</p>
+              <h2>Redacted settings</h2>
+            </div>
+            <div id="settingsList" class="definition-grid"></div>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Schema</p>
+              <h2>Expected sections</h2>
+            </div>
+            <div id="schemaList" class="schema-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-diagnostics" class="view" hidden>
+        <div class="grid two-up">
+          <article class="panel reveal" style="--delay: 0.28s;">
+            <div class="section-head">
+              <p class="eyebrow">Startup</p>
+              <h2>Launch timeline</h2>
+            </div>
+            <ol id="startupTimeline" class="timeline"></ol>
+          </article>
+
+          <article class="panel reveal" style="--delay: 0.34s;">
+            <div class="section-head">
+              <p class="eyebrow">Raw Payloads</p>
+              <h2>Structured diagnostics</h2>
+            </div>
+            <div class="raw-block">
+              <h3>Startup diagnostics</h3>
+              <pre id="startupJson" class="code-block">{}</pre>
+            </div>
+            <div class="raw-block">
+              <h3>Runtime diagnostics</h3>
+              <pre id="runtimeJson" class="code-block">{}</pre>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="/assets/js/app.js"></script>
+</body>
+</html>

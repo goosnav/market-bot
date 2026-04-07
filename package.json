@@ -1,0 +1,11 @@
+{
+  "name": "market-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:frontend": "node --test frontend/tests/*.test.mjs",
+    "test:links": "node scripts/validate-static.mjs"
+  }
+}
+

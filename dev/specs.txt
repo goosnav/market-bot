@@ -1,0 +1,1711 @@
+LOCAL-FIRST OUTBOUND MARKETING WORKSTATION
+SOFTWARE REQUIREMENTS SPECIFICATION
+VERSION: 1.0
+STATUS: IMPLEMENTATION-READY SPEC
+AUDIENCE: SOFTWARE ENGINEERS, TECHNICAL PRODUCT OWNERS, SYSTEM DESIGNERS
+
+======================================================================
+0. DOCUMENT PURPOSE
+======================================================================
+
+This document defines the required behavior, architecture, data model,
+user flows, constraints, and release scope for a local-first outbound
+marketing application for service businesses.
+
+The product is a desktop-launched local web application that runs on
+the user's machine, opens in the browser, stores data locally, uses
+external APIs where needed, and orchestrates cold outbound email
+campaigns for high-value service sales.
+
+Primary business use case:
+- sell AI consulting and similar service offers to profitable SMBs
+
+Target verticals:
+- law firms
+- car dealerships
+- medical practices and clinics
+- manufacturing companies
+- other high-profit local and regional SMBs
+
+Primary operator:
+- a single internal user
+- no team collaboration required in v1
+- no multi-tenant SaaS behavior in v1
+
+This document intentionally favors practicality, portability, clean
+architecture, and strong operational constraints over unnecessary
+breadth.
+
+======================================================================
+1. PRODUCT DEFINITION
+======================================================================
+
+1.1 Product Summary
+
+The application is a local control-plane for outbound email marketing.
+It does not attempt to be a full CRM or a full email infrastructure
+provider. It owns the logic, workflow state, local database, campaign
+generation, scheduling, personalization, reply classification, and
+analytics. It delegates lead sourcing and message delivery to external
+providers through pluggable adapters.
+
+1.2 Core Product Thesis
+
+The product must allow a single operator to:
+- import leads from Apollo and internal lists
+- deduplicate and segment leads
+- generate outbound campaigns using structured templates plus AI
+- preview all scheduled messages before launch
+- push campaigns to a sending provider
+- monitor sends, replies, unsubscribes, and conversions
+- optionally auto-handle constrained reply conversations
+- drive prospects to book calls through Google Calendar booking pages
+
+1.3 What The Product Is
+
+The product is:
+- a local-first outbound sales workstation
+- a browser-based app launched from the local filesystem
+- a campaign generator and orchestrator
+- a provider-agnostic control plane
+- a single-user internal operations tool
+
+1.4 What The Product Is Not
+
+The product is not:
+- a full CRM replacement
+- a newsletter platform
+- a mass consumer marketing platform
+- a general web scraping framework
+- a raw SMTP infrastructure layer in v1
+- an autonomous unrestricted AI sales agent
+- a multi-tenant SaaS in v1
+
+======================================================================
+2. PRIMARY DESIGN PRINCIPLES
+======================================================================
+
+2.1 Local-First
+The application UI, backend, worker, and database must run on-device.
+The application may call external APIs for lead data, LLM generation,
+email delivery, and calendar links.
+
+2.2 Portable
+The application folder must be movable. The user must be able to drag
+the app folder anywhere and run it from there. No hardcoded absolute
+paths are allowed.
+
+2.3 Browser-Based UX
+The application should behave like a modern web app, but run locally.
+The preferred launch behavior is:
+- user double-clicks launcher
+- backend starts
+- worker starts
+- frontend becomes available on localhost
+- default browser opens automatically
+
+2.4 Clean Control Plane
+The application must own workflow state and business logic. Email
+sending, lead sourcing, and LLM generation must be implemented behind
+adapters so providers can be swapped later without rewriting the system.
+
+2.5 Human-Inspectable Automation
+All outbound content must be inspectable. The user must be able to see:
+- what will be sent
+- when it will be sent
+- through which sending account
+- using which template
+- with which AI-generated sections
+
+2.6 Moderate But Real Automation
+The product should automate the repetitive parts of outbound, but must
+not behave recklessly. It must include unsubscribe handling, suppression
+logic, send caps, quiet hours, and constrained reply behavior.
+
+2.7 Lean Scope
+Only build features that materially improve outbound execution, safety,
+or operator efficiency.
+
+======================================================================
+3. RESOLVED PRODUCT DECISIONS
+======================================================================
+
+The following design questions are considered resolved:
+
+3.1 Use Case
+The product is built for service business outbound, especially AI
+consulting and adjacent service offers.
+
+3.2 Customer Type
+Target buyers are small to medium profitable local/regional businesses.
+
+3.3 Volume Strategy
+The system must be architected to support 1,000+ emails/day across
+multiple sending accounts, but initial operational defaults should be
+more conservative.
+
+3.4 Lead Sources
+The system must support:
+- Apollo import
+- CSV/XLSX import
+- persistent local master lead list
+
+3.5 Sending Strategy
+The system should use a sending provider adapter in v1 rather than raw
+SMTP or raw Gmail sending logic.
+
+3.6 Reply Handling
+The system should support:
+- threaded follow-ups where possible
+- reply classification
+- auto-stop on reply
+- constrained auto-replies in later release tiers
+- human escalation when confidence is low or content is sensitive
+
+3.7 Booking
+Meeting booking is not handled by the app calendar engine. Customers
+book through a Google Calendar appointment scheduling link.
+
+3.8 Deployment Model
+The application is local-first, but the architecture must allow later
+deployment to a VM or remote server with minimal change.
+
+3.9 Productization Model
+v1 is a single-user internal tool. Multi-tenant SaaS is out of scope.
+
+======================================================================
+4. GOALS AND NON-GOALS
+======================================================================
+
+4.1 Primary Goals
+
+G1. Import and normalize lead data from Apollo and local files
+G2. Deduplicate and maintain a persistent local master lead database
+G3. Segment leads by vertical, geography, and business fit
+G4. Generate campaign sequences using templates and AI
+G5. Display all scheduled messages before launch
+G6. Push campaign execution to a sending provider
+G7. Track send state, reply state, unsubscribe state, and conversions
+G8. Support constrained reply workflows
+G9. Inject Google Calendar booking links at the right stage
+G10. Run reliably from a movable local folder
+G11. Keep the system implementation clean and provider-agnostic
+
+4.2 Secondary Goals
+
+S1. Support multiple service offers
+S2. Support performance comparisons between templates and campaigns
+S3. Reduce operator time per campaign
+S4. Make later conversion to hosted deployment straightforward
+
+4.3 Non-Goals For v1
+
+N1. Multi-user collaboration
+N2. Team permissions and roles
+N3. White-labeling
+N4. Full CRM pipeline replacement
+N5. LinkedIn automation
+N6. SMS automation
+N7. Voice call automation
+N8. Raw custom email infrastructure
+N9. Arbitrary web scraping engine
+N10. Unconstrained autonomous freeform sales agent
+
+======================================================================
+5. SYSTEM OVERVIEW
+======================================================================
+
+5.1 High-Level Components
+
+A. Frontend
+- local browser-based web UI
+- React + TypeScript recommended
+- communicates only with local backend API
+
+B. Backend API
+- local HTTP server
+- handles CRUD, orchestration logic, settings, campaign generation,
+  provider adapter calls, state transitions, analytics aggregation
+
+C. Background Worker
+- scheduling
+- job execution
+- provider polling and webhook processing
+- reply classification
+- queued task execution
+- retry management
+
+D. Local Database
+- SQLite in WAL mode recommended for v1
+- stores all product state and history
+
+E. Local Filesystem Storage
+- logs
+- exports
+- provider payload snapshots
+- generation artifacts
+- config files where appropriate
+- optional local cache
+
+F. Provider Adapters
+- Apollo adapter
+- sending provider adapter
+- LLM provider adapter
+- Google Calendar link adapter
+- optional email verification adapter
+
+5.2 Architectural Rule
+
+All provider interactions must go through adapter interfaces. Business
+logic must not directly depend on any specific provider SDK or payload
+shape beyond adapter boundaries.
+
+======================================================================
+6. USER PERSONA AND OPERATING MODEL
+======================================================================
+
+6.1 Primary User
+
+The user is an operator running service-business outbound campaigns for
+their own business.
+
+User characteristics:
+- technical enough to configure API keys and basic settings
+- wants strong automation without bloated software
+- wants to inspect and control outbound before launch
+- wants the app to run locally with low friction
+
+6.2 Operator Workflow Summary
+
+1. Configure settings
+2. Import leads
+3. Filter and segment leads
+4. Select offer profile and campaign playbook
+5. Generate campaign
+6. Review scheduled emails
+7. Launch campaign
+8. Monitor campaign analytics and replies
+9. Allow auto-replies where safe
+10. Move interested leads to booking CTA
+11. Export results and refine future campaigns
+
+======================================================================
+7. CORE USER STORIES
+======================================================================
+
+US1.
+As the operator, I can import leads from Apollo and local files into one
+master lead database.
+
+US2.
+As the operator, I can deduplicate leads and maintain suppression status
+across all campaigns.
+
+US3.
+As the operator, I can define campaign parameters such as vertical,
+offer, templates, send windows, and booking links.
+
+US4.
+As the operator, I can generate personalized email sequences using a
+blend of fixed templates and AI-generated fields.
+
+US5.
+As the operator, I can inspect every queued email, including launch
+time, sending account, subject, body, and AI-generated sections.
+
+US6.
+As the operator, I can launch a campaign to an external sending provider
+without manually recreating it elsewhere.
+
+US7.
+As the operator, I can see real campaign state:
+- queued
+- sent
+- delivered
+- bounced
+- replied
+- interested
+- booked
+- unsubscribed
+- failed
+
+US8.
+As the operator, I can stop, pause, clone, or modify campaigns.
+
+US9.
+As the operator, I can have the system classify replies and suppress
+leads or draft replies automatically.
+
+US10.
+As the operator, I can export campaign and lead data at any time.
+
+======================================================================
+8. FUNCTIONAL REQUIREMENTS
+======================================================================
+
+8.1 Authentication and Access
+
+FR-A1.
+v1 may operate without formal user authentication if run only locally.
+
+FR-A2.
+If the application is later exposed on a network, optional local auth
+must exist behind a configuration flag.
+
+FR-A3.
+A single local profile is sufficient in v1.
+
+8.2 Settings and Configuration
+
+FR-S1.
+The system must expose a settings area for:
+- API keys
+- provider selection
+- default sending windows
+- booking links
+- footer/signature data
+- physical mailing address
+- model settings
+- vertical playbooks
+- reply behavior modes
+- quiet hours
+- campaign defaults
+
+FR-S2.
+API keys must not be stored in plaintext logs.
+
+FR-S3.
+The system must validate configuration and show explicit errors if a
+provider is misconfigured.
+
+FR-S4.
+The application must allow environment-independent configuration so the
+app remains portable.
+
+8.3 Lead Import
+
+FR-L1.
+The system must import leads from Apollo via adapter.
+
+FR-L2.
+The system must import leads from CSV and XLSX.
+
+FR-L3.
+The system must support manual lead creation/editing.
+
+FR-L4.
+Imported leads must be normalized to a single internal schema.
+
+FR-L5.
+The system must preserve source provenance for every imported lead.
+
+FR-L6.
+The system must support incremental imports without corrupting the
+master lead list.
+
+8.4 Lead Deduplication
+
+FR-D1.
+The system must deduplicate leads using at least:
+- exact email match
+- normalized domain match
+- company + name similarity
+- optional Apollo source ID match
+
+FR-D2.
+Deduplication rules must produce a visible resolution result:
+- merged
+- skipped
+- conflicting
+- manual review required
+
+FR-D3.
+The system must never silently discard duplicate records without audit.
+
+8.5 Lead Segmentation and Filtering
+
+FR-F1.
+The system must support lead filtering by:
+- vertical
+- title
+- geography
+- company size
+- source
+- suppression status
+- enrichment status
+- campaign status
+- tags
+- domain
+- email presence
+
+FR-F2.
+The system must support persistent saved filters or saved audience
+definitions.
+
+FR-F3.
+The system must support tagging leads and companies.
+
+8.6 Offer Profiles and Playbooks
+
+FR-O1.
+The system must allow creation of offer profiles.
+
+Offer profile fields should include:
+- offer name
+- offer description
+- target verticals
+- target pains
+- value proposition
+- standard CTA
+- booking link
+- allowed claims
+- disallowed claims
+- pricing framing snippets
+- objection handling snippets
+
+FR-O2.
+The system must allow vertical playbooks.
+
+Vertical playbook fields should include:
+- vertical name
+- target pains
+- acceptable language
+- disallowed language
+- personalization strategy
+- tone profile
+- sample subject patterns
+- standard objections
+- escalation rules
+
+8.7 Template System
+
+FR-T1.
+The system must support reusable email templates.
+
+FR-T2.
+Templates must support:
+- fixed text
+- merge fields
+- conditional blocks
+- AI-generation blocks
+- subject/body variants
+- sequence step usage
+
+FR-T3.
+Template blocks must explicitly mark which text is:
+- static
+- merged
+- AI-generated
+
+FR-T4.
+The user must be able to preview rendered output before sending.
+
+FR-T5.
+The system must support template packs by vertical or offer.
+
+FR-T6.
+The system must allow disabling certain AI-generated blocks if the
+operator wants stricter deterministic messaging.
+
+8.8 AI Personalization
+
+FR-P1.
+The system must generate personalization using structured inputs and
+clear prompt templates.
+
+FR-P2.
+AI-generated content must be bounded by:
+- max length
+- allowed claim set
+- tone profile
+- banned phrases or claim categories
+- optional vertical playbook restrictions
+
+FR-P3.
+AI output must be stored as a generation artifact linked to the email.
+
+FR-P4.
+The system must expose a confidence score or risk flag for generated
+content based on validation rules.
+
+FR-P5.
+The system must never allow AI to invent case studies, client names,
+performance guarantees, or unsupported factual claims.
+
+8.9 Campaign Builder
+
+FR-C1.
+The user must be able to create a campaign from:
+- a saved audience
+- a filtered lead set
+- an imported list
+- an offer profile
+- a template pack
+- a send schedule
+- a booking link
+- a provider account pool
+
+FR-C2.
+Campaign configuration must include:
+- campaign name
+- target audience
+- offer profile
+- template pack
+- send windows
+- timezone assumptions
+- sequence length
+- provider adapter
+- account rotation pool
+- approval mode
+- reply behavior mode
+- stop conditions
+- quiet hours
+- footer/signature selection
+
+FR-C3.
+Campaigns must support multiple sequence steps.
+
+FR-C4.
+Campaigns must support preview generation before launch.
+
+FR-C5.
+The campaign builder must show estimated volume per day and per account.
+
+8.10 Queue and Scheduling
+
+FR-Q1.
+The system must create explicit queued message records before launch.
+
+FR-Q2.
+Each queued message must store:
+- lead ID
+- company ID if applicable
+- campaign ID
+- sequence step ID
+- template ID
+- template variant ID
+- generation artifact ID
+- sending account ID
+- scheduled send time
+- current queue state
+
+FR-Q3.
+The user must be able to inspect queued messages individually and in
+bulk.
+
+FR-Q4.
+The scheduler must respect:
+- quiet hours
+- weekends if configured
+- per-account daily caps
+- per-domain touch caps if configured
+- suppression rules
+- stop-on-reply rules
+- provider availability
+
+FR-Q5.
+The scheduler must be restart-safe and idempotent.
+
+FR-Q6.
+A restart must not cause duplicate sends.
+
+8.11 Sending Provider Push
+
+FR-SP1.
+The system must push campaigns and/or lead send instructions to a
+sending provider adapter.
+
+FR-SP2.
+The system must store external provider IDs for all relevant campaign,
+lead, message, and account objects when available.
+
+FR-SP3.
+The system must synchronize execution state from provider events.
+
+FR-SP4.
+The system must support at least one sending adapter in v1 and be built
+to support more later.
+
+8.12 Reply Handling
+
+FR-R1.
+The system must ingest reply events from providers.
+
+FR-R2.
+Replies must be linked to:
+- lead
+- campaign
+- thread
+- original sent message if available
+
+FR-R3.
+The system must classify replies into at least:
+- positive interest
+- objection
+- referral
+- unsubscribe
+- wrong person
+- out of office
+- hostile
+- ambiguous
+
+FR-R4.
+The system must automatically stop sequence progression when a reply is
+received unless a policy explicitly allows continuation.
+
+FR-R5.
+The system must automatically suppress unsubscribes.
+
+FR-R6.
+The system must support reply drafting.
+
+FR-R7.
+Auto-send replies must be a configurable behavior and disabled by
+default in early versions.
+
+FR-R8.
+The system must support realistic reply delays.
+
+FR-R9.
+Low-confidence or policy-violating replies must be escalated for human
+review.
+
+8.13 Booking Link Behavior
+
+FR-B1.
+The system must support one or more Google Calendar booking links.
+
+FR-B2.
+Booking links must be assignable by offer profile and campaign.
+
+FR-B3.
+Templates must be able to include the booking link as a merge field.
+
+FR-B4.
+The system must support only link-based booking injection in v1. It does
+not need in-app booking management.
+
+8.14 Suppression and Compliance
+
+FR-U1.
+The system must maintain a master suppression list.
+
+FR-U2.
+Suppression entries must support:
+- email
+- domain
+- lead ID
+- reason
+- source
+- timestamp
+
+FR-U3.
+The system must not send to suppressed contacts.
+
+FR-U4.
+The system must allow manual suppression.
+
+FR-U5.
+The system must support unsubscribe links or equivalent provider
+mechanisms where applicable.
+
+FR-U6.
+The system must include physical mailing address and required footer
+elements in commercial outbound where configured.
+
+8.15 Analytics and Reporting
+
+FR-AN1.
+The dashboard must show at minimum:
+- queued
+- sent
+- failed
+- bounced
+- replied
+- interested
+- unsubscribed
+- booked
+- completed
+- paused
+
+FR-AN2.
+Metrics must be visible by:
+- campaign
+- date range
+- vertical
+- sending account
+- template pack
+- sequence step
+
+FR-AN3.
+The system must expose lead-level event histories.
+
+FR-AN4.
+The system must support export of:
+- lead tables
+- campaign metrics
+- reply logs
+- send events
+
+8.16 Audit and Logs
+
+FR-AU1.
+All significant state transitions must create audit events.
+
+FR-AU2.
+Audit events must exist for:
+- import
+- dedupe merge
+- campaign creation
+- queue creation
+- launch
+- send
+- reply received
+- suppression
+- auto-reply sent
+- manual override
+- provider sync error
+
+FR-AU3.
+Logs must be structured and timestamped.
+
+FR-AU4.
+Sensitive credentials must be redacted from logs.
+
+======================================================================
+9. UI/UX REQUIREMENTS
+======================================================================
+
+9.1 General UX
+
+UX1.
+The UI must prioritize fast operator workflows over decorative design.
+
+UX2.
+The UI must be desktop-first.
+
+UX3.
+Major actions must be understandable without hidden state.
+
+UX4.
+Tables must support sorting, filtering, search, and bulk actions.
+
+UX5.
+Important system states must be visible immediately.
+
+9.2 Required Screens
+
+A. Home Dashboard
+Must show:
+- active campaigns
+- queued messages today
+- replies needing attention
+- sends today
+- unsubscribes today
+- provider health
+- recent errors
+
+B. Leads Screen
+Must show:
+- master lead table
+- filters
+- tags
+- dedupe outcomes
+- enrichment status
+- suppression status
+- campaign history
+
+C. Companies Screen
+Must show:
+- company records
+- linked leads
+- domain
+- vertical
+- notes
+- campaign history
+
+D. Campaign Builder Screen
+Must allow:
+- audience selection
+- offer selection
+- template pack selection
+- schedule selection
+- reply mode selection
+- provider selection
+- queue generation
+
+E. Queue Preview Screen
+Must allow:
+- inspect each message
+- inspect render details
+- bulk approve or regenerate
+- see schedule times
+- see assigned provider account
+
+F. Active Campaign Screen
+Must show:
+- state
+- sequence progress
+- send metrics
+- reply metrics
+- booking metrics
+- recent events
+- pause/resume controls
+
+G. Replies Screen
+Must show:
+- inbox-like reply table
+- classification
+- confidence
+- suggested response
+- escalation status
+- suppress options
+
+H. Templates Screen
+Must allow:
+- template CRUD
+- block editing
+- variant editing
+- test rendering
+- playbook linkage
+
+I. Settings Screen
+Must allow:
+- provider configuration
+- API keys
+- booking links
+- quiet hours
+- mailing footer
+- logging level
+- model settings
+
+9.3 Queue Preview Requirements
+
+This is a critical screen.
+
+QPR1.
+The user must be able to preview exactly what will be sent.
+
+QPR2.
+Each preview row or detail panel must show:
+- recipient
+- company
+- subject
+- body
+- static sections
+- AI-generated sections
+- scheduled send time
+- sending account
+- sequence step
+- risk flags
+
+QPR3.
+The user must be able to regenerate AI blocks selectively.
+
+QPR4.
+The user must be able to manually edit the final output before launch.
+
+======================================================================
+10. DATA MODEL REQUIREMENTS
+======================================================================
+
+10.1 Core Entities
+
+Required entities:
+
+- Lead
+- Company
+- List
+- ListMembership
+- Campaign
+- CampaignAudienceSnapshot
+- Sequence
+- SequenceStep
+- Template
+- TemplateVariant
+- TemplateBlock
+- OfferProfile
+- VerticalPlaybook
+- QueuedMessage
+- SentMessage
+- Reply
+- Thread
+- ProviderAccount
+- ProviderMapping
+- BookingLink
+- SuppressionEntry
+- GenerationArtifact
+- AuditEvent
+- WebhookEvent
+- SettingsBundle
+- Tag
+- EntityTag
+
+10.2 Entity Notes
+
+Lead
+Represents a person/contact.
+
+Company
+Represents the organization and may contain several leads.
+
+List
+Represents imported or saved collections.
+
+CampaignAudienceSnapshot
+Freezes campaign audience membership at creation time so later lead
+database edits do not retroactively change historical campaign context.
+
+Sequence
+Represents the campaign sequence logic.
+
+SequenceStep
+Represents one outbound step with timing and template linkage.
+
+TemplateBlock
+Represents subcomponents within a template, including AI blocks.
+
+QueuedMessage
+Represents a pre-send, scheduled outbound message instance.
+
+SentMessage
+Represents an actual provider-executed outbound event.
+
+Thread
+Groups sent messages and replies into a single conversation.
+
+Reply
+Represents an inbound message or provider event.
+
+GenerationArtifact
+Stores AI prompt input, output, validation result, and metadata.
+
+ProviderMapping
+Stores external IDs and provider-specific references.
+
+10.3 Minimum Lead Fields
+
+- id
+- source
+- external_source_id
+- first_name
+- last_name
+- full_name
+- email
+- phone
+- title
+- linkedin_url if available
+- company_id
+- company_name_snapshot
+- company_domain_snapshot
+- city
+- state
+- country
+- tags
+- enrichment_status
+- verification_status
+- suppression_status
+- fit_score
+- personalization_json
+- notes
+- created_at
+- updated_at
+
+10.4 Minimum Company Fields
+
+- id
+- source
+- external_source_id
+- name
+- domain
+- website
+- phone
+- vertical
+- employee_count_band
+- revenue_band
+- city
+- state
+- country
+- notes
+- created_at
+- updated_at
+
+10.5 Minimum Campaign Fields
+
+- id
+- name
+- description
+- status
+- offer_profile_id
+- vertical_playbook_id
+- provider_name
+- approval_mode
+- reply_mode
+- send_window_config_json
+- quiet_hours_config_json
+- created_at
+- launched_at
+- paused_at
+- completed_at
+
+10.6 Minimum QueuedMessage Fields
+
+- id
+- lead_id
+- company_id
+- campaign_id
+- sequence_id
+- sequence_step_id
+- template_id
+- template_variant_id
+- generation_artifact_id
+- provider_account_id
+- scheduled_for
+- state
+- rendered_subject
+- rendered_body
+- render_hash
+- risk_flags_json
+- created_at
+- updated_at
+
+10.7 State Enums
+
+Campaign states:
+- draft
+- preview_ready
+- scheduled
+- launching
+- active
+- paused
+- completed
+- archived
+- failed
+
+QueuedMessage states:
+- pending_render
+- rendered
+- approved
+- scheduled
+- dispatched
+- sent
+- failed
+- canceled
+- suppressed
+- blocked
+
+Reply states:
+- unclassified
+- classified
+- draft_ready
+- auto_sent
+- human_review_required
+- resolved
+
+======================================================================
+11. WORKFLOW SPECIFICATIONS
+======================================================================
+
+11.1 Lead Import Workflow
+
+1. User selects import source.
+2. System validates file or provider credentials.
+3. System reads raw records.
+4. System normalizes fields to internal schema.
+5. System runs dedupe pass.
+6. System produces import result summary:
+   - total read
+   - inserted
+   - merged
+   - skipped
+   - conflicted
+7. System writes audit event.
+8. User can review flagged conflicts.
+
+11.2 Campaign Build Workflow
+
+1. User selects audience or filtered leads.
+2. User selects offer profile.
+3. User selects vertical playbook.
+4. User selects template pack.
+5. User selects provider and account pool.
+6. User configures schedule, quiet hours, approval mode, and reply mode.
+7. System renders queue candidates.
+8. System performs validation pass:
+   - missing email
+   - suppression status
+   - missing booking link if required
+   - missing footer
+   - provider account availability
+9. System generates queue preview.
+10. User approves, edits, regenerates, or cancels.
+11. On approval, queue becomes launchable.
+
+11.3 Send Execution Workflow
+
+1. Scheduler finds eligible queued messages.
+2. Scheduler rechecks suppression and stop conditions.
+3. Scheduler dispatches through provider adapter.
+4. System stores provider mapping and status.
+5. System writes sent event on success.
+6. Failures are recorded with reason and retry behavior.
+7. Metrics update.
+
+11.4 Reply Handling Workflow
+
+1. Provider event or polling identifies new reply.
+2. System stores raw event.
+3. System resolves thread and lead.
+4. System classifies reply.
+5. System applies policy rules:
+   - suppress
+   - stop sequence
+   - draft reply
+   - escalate
+6. If auto-reply allowed:
+   - wait configured delay
+   - send through thread-aware method if available
+7. Log all actions.
+
+11.5 Unsubscribe Workflow
+
+1. System detects explicit unsubscribe event or provider flag.
+2. System creates suppression entry.
+3. System cancels remaining queued steps for that lead.
+4. System logs the suppression source.
+5. Suppression propagates across future campaigns.
+
+======================================================================
+12. AI BEHAVIOR SPECIFICATION
+======================================================================
+
+12.1 AI Use Cases
+
+AI is allowed for:
+- personalization sentence generation
+- subject variant generation
+- short opener generation
+- reply classification
+- reply drafting within constraints
+- offer-specific copy adjustments
+
+AI is not allowed to:
+- invent factual claims
+- invent legal or medical guarantees
+- fabricate customer results
+- fabricate case studies
+- make unsupported compliance claims
+- freestyle unrestricted sales negotiation
+- generate unsafe regulated advice
+
+12.2 Prompting Principles
+
+The application must use structured prompt templates. Prompts must be
+versioned and attributable.
+
+Prompt inputs should include:
+- offer profile
+- vertical playbook
+- lead/company context
+- allowed claim list
+- banned claim list
+- max token/length target
+- response schema
+
+12.3 Validation Layer
+
+Generated content must pass validation rules before approval:
+- no banned phrases
+- no unsupported guarantees
+- no invalid missing variables
+- no over-length content
+- no malformed output schema
+
+12.4 Human Override
+
+The operator must be able to:
+- regenerate AI output
+- edit final text
+- disable AI block usage
+- lock template behavior to deterministic mode
+
+======================================================================
+13. PROVIDER ADAPTER REQUIREMENTS
+======================================================================
+
+13.1 General Adapter Rules
+
+PA1.
+Every provider integration must be implemented as an adapter with a
+stable internal interface.
+
+PA2.
+Provider payloads must be mapped into internal normalized models.
+
+PA3.
+Provider-specific identifiers must be stored separately from internal
+IDs.
+
+13.2 Apollo Adapter
+
+Must support:
+- credentials validation
+- people import
+- organization import if used
+- enrichment calls where configured
+- source attribution
+- raw payload snapshot storage if enabled
+
+13.3 Sending Provider Adapter
+
+Must support:
+- provider account list
+- campaign push or equivalent
+- message status synchronization
+- reply ingestion
+- unsubscribe or suppression awareness where applicable
+- error mapping
+
+13.4 LLM Adapter
+
+Must support:
+- generation requests
+- classification requests
+- provider selection via settings
+- timeout handling
+- structured output validation
+
+13.5 Booking Link Adapter
+
+For v1 this can be minimal:
+- store and validate Google booking links
+- expose merge field values
+
+======================================================================
+14. NON-FUNCTIONAL REQUIREMENTS
+======================================================================
+
+14.1 Reliability
+
+NFR-R1.
+The application must recover cleanly from restart.
+
+NFR-R2.
+The scheduler must be idempotent.
+
+NFR-R3.
+The system must not duplicate sends after crash or reboot.
+
+NFR-R4.
+Database writes for queue state transitions must be transactional.
+
+14.2 Portability
+
+NFR-P1.
+No hardcoded absolute file paths.
+
+NFR-P2.
+All runtime paths must resolve from:
+- app root
+- user data directory
+- configured relative path
+
+NFR-P3.
+The launcher must work regardless of where the folder is placed.
+
+14.3 Performance
+
+NFR-PE1.
+The system should handle tens of thousands of leads locally without UI
+collapse.
+
+NFR-PE2.
+Common UI interactions must remain responsive under normal background
+job load.
+
+NFR-PE3.
+Background operations should not block core UI actions.
+
+14.4 Security
+
+NFR-S1.
+Secrets must be stored securely, not in plaintext logs.
+
+NFR-S2.
+Config export must redact secrets.
+
+NFR-S3.
+Raw provider payload storage must be configurable because payloads may
+contain sensitive business contact data.
+
+14.5 Maintainability
+
+NFR-M1.
+The codebase must be modular by domain.
+
+NFR-M2.
+UI components should not directly encode provider-specific logic.
+
+NFR-M3.
+Provider adapters must be swappable with minimal ripple effects.
+
+NFR-M4.
+The database schema must use versioned migrations.
+
+======================================================================
+15. LOCAL PACKAGING AND LAUNCH REQUIREMENTS
+======================================================================
+
+15.1 Packaging Goal
+
+The product must feel like a local app even though it uses a browser UI.
+
+15.2 Required Launch Behavior
+
+On launch:
+1. resolve application root
+2. validate configuration
+3. initialize database if needed
+4. start backend server
+5. start background worker
+6. choose or validate localhost port
+7. open default browser to local UI
+8. show visible startup failure message if any critical step fails
+
+15.3 Launcher Requirements
+
+The launcher must:
+- work when invoked from inside the app folder
+- work when a shortcut points to it from outside the folder
+- not assume fixed install directory
+- support Windows first
+
+15.4 Logging During Startup
+
+Startup logs must be written to a predictable local log path and include:
+- timestamp
+- stage
+- success/failure
+- exception details if failed
+
+======================================================================
+16. RECOMMENDED TECHNICAL STACK
+======================================================================
+
+This section is opinionated and should be followed unless a better
+alternative exists with clear justification.
+
+16.1 Frontend
+- React
+- TypeScript
+- Vite
+- TanStack Query
+- Zustand or equivalent for lightweight client state
+
+16.2 Backend
+- Python
+- FastAPI
+- Pydantic
+- SQLAlchemy
+- Alembic
+- APScheduler or equivalent for v1 scheduled jobs
+- httpx for HTTP integrations
+
+16.3 Data Store
+- SQLite in WAL mode for v1
+- design repository and access layer so Postgres can replace SQLite later
+  without business logic rewrite
+
+16.4 Packaging
+- static frontend bundle served by local backend
+- launcher scripts or small executable wrapper
+- no Docker dependency for local v1
+
+16.5 Why This Stack
+- fast local development
+- straightforward packaging
+- clean API boundaries
+- strong Python integration ecosystem
+- easy migration to remote-hosted later
+
+======================================================================
+17. OPERATIONAL SAFETY AND GUARDRAILS
+======================================================================
+
+17.1 Required Guardrails
+
+G1.
+Do not send to suppressed leads.
+
+G2.
+Do not send after explicit unsubscribe.
+
+G3.
+Do not continue sequence after human reply unless policy explicitly
+permits it.
+
+G4.
+Do not auto-reply to legal threats, medical details, contracts, or other
+high-risk content.
+
+G5.
+Do not allow AI to invent claims.
+
+G6.
+Do not exceed per-account daily cap.
+
+G7.
+Do not send outside configured quiet hours.
+
+G8.
+Do not allow campaigns to launch without required footer elements where
+configured.
+
+17.2 Circuit Breakers
+
+The system should support automatic campaign pause or alert conditions:
+- bounce rate above threshold
+- unsubscribe spike
+- provider failure spike
+- reply classification failure spike
+- repeated send account errors
+
+======================================================================
+18. RELEASE TIERS
+======================================================================
+
+18.1 Version 0 - Core Orchestration MVP
+
+Must include:
+- settings management
+- Apollo import
+- CSV/XLSX import
+- master lead table
+- dedupe
+- tagging/filtering
+- offer profiles
+- template system
+- AI personalization blocks
+- campaign builder
+- queue preview
+- provider push
+- suppression list
+- booking link injection
+- dashboard metrics
+- exports
+
+Must not include yet:
+- autonomous auto-replies
+- advanced branching logic
+- multi-user support
+
+18.2 Version 1 - Practical Internal Tool
+
+Adds:
+- reply ingestion
+- reply classification
+- draft reply suggestions
+- stop-on-reply automation
+- better analytics
+- provider sync robustness
+- audit log completeness
+- circuit breakers
+
+18.3 Version 1.5 - Constrained Automation
+
+Adds:
+- limited auto-replies for approved classes
+- confidence-based escalation
+- improved lead scoring
+- template performance comparison
+- deeper playbook behavior
+
+18.4 Version 2 - Productization Layer
+
+Adds:
+- stronger hosted deployment support
+- optional auth
+- multi-provider optimization
+- possible team features
+- future SaaS seams if desired
+
+======================================================================
+19. ACCEPTANCE CRITERIA
+======================================================================
+
+The implementation is acceptable only if the following are true:
+
+AC1.
+A user can drag the app folder anywhere, launch it, and the system opens
+in the browser without requiring path edits.
+
+AC2.
+A user can import Apollo leads and CSV leads into one persistent local
+database.
+
+AC3.
+The system deduplicates intelligently and records its actions.
+
+AC4.
+A user can create a campaign from filtered leads and an offer profile.
+
+AC5.
+The system generates a preview queue where each message can be inspected.
+
+AC6.
+The system displays exact scheduled send times and assigned sending
+accounts.
+
+AC7.
+The system can launch a campaign through a sending provider adapter.
+
+AC8.
+The system receives and stores provider execution state.
+
+AC9.
+The system can classify replies and stop future sends for replied leads.
+
+AC10.
+The system can suppress unsubscribed leads and prevent future sends.
+
+AC11.
+The system stores all major audit events.
+
+AC12.
+The system remains usable after restart and does not double-send.
+
+======================================================================
+20. TEST REQUIREMENTS
+======================================================================
+
+20.1 Unit Tests
+
+Required for:
+- dedupe rules
+- template rendering
+- AI block validation
+- campaign state transitions
+- suppression enforcement
+- reply classification rule routing
+- scheduler eligibility logic
+- provider payload mapping
+
+20.2 Integration Tests
+
+Required for:
+- Apollo import flow
+- sending provider push flow
+- reply ingestion flow
+- queue generation flow
+- restart and recovery flow
+
+20.3 End-to-End Tests
+
+Required for:
+- launch local app
+- import leads
+- create campaign
+- preview queue
+- launch campaign
+- receive reply
+- suppress lead
+- restart app safely
+
+20.4 Regression Tests
+
+Must exist for:
+- no duplicate sends after restart
+- queue preview accuracy
+- unsubscribe enforcement
+- banned claim prevention in AI outputs
+
+======================================================================
+21. RECOMMENDED PROJECT STRUCTURE
+======================================================================
+
+This is not mandatory, but it is the right direction.
+
+backend/
+  app/
+    api/
+    core/
+    domain/
+    services/
+    adapters/
+      apollo/
+      sending/
+      llm/
+      booking/
+    workers/
+    models/
+    schemas/
+    repositories/
+    migrations/
+    tests/
+  launcher/
+
+frontend/
+  src/
+    pages/
+    features/
+    components/
+    hooks/
+    api/
+    state/
+    tests/
+
+data/
+  app.db
+  logs/
+  exports/
+  cache/
+
+config/
+  settings.example.json
+
+======================================================================
+22. IMPLEMENTATION GUIDANCE
+======================================================================
+
+22.1 Most Important Engineering Rule
+
+Do not let provider payloads leak into core business logic. Keep clean
+internal models and adapter boundaries.
+
+22.2 Second Most Important Rule
+
+The queue preview is the heart of operator trust. If preview accuracy is
+weak, the app fails regardless of other features.
+
+22.3 Third Most Important Rule
+
+Constrain AI aggressively. This product is not a sandbox for open-ended
+LLM behavior. It is a bounded outbound operations system.
+
+22.4 Fourth Most Important Rule
+
+Build for restart safety from day one. Outbound tools that duplicate
+sends or lose state are worthless.
+
+======================================================================
+23. FINAL PRODUCT STATEMENT
+======================================================================
+
+Build a local-first outbound orchestration application that owns the
+workflow, queue, data, AI generation, and operational control for SMB
+service-business cold email. The product must run as a browser-based app
+launched from the local machine, integrate with Apollo for lead sourcing
+and an external sending provider for campaign execution, preview every
+scheduled email before launch, enforce suppression and guardrails, and
+support constrained reply workflows and Google Calendar booking links.
+
+The implementation should optimize for:
+- portability
+- clean architecture
+- operator visibility
+- moderate automation
+- deliverability-aware behavior
+- low operational friction
+- future extensibility without current bloat
+
+END OF SPEC

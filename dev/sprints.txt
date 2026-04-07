@@ -1,0 +1,675 @@
+Build doctrine
+
+Treat this as a local product platform, not a script pile. The right build order is:
+
+Own the domain model and queue state first
+Own preview accuracy second
+Own restart safety third
+Integrate providers only after the core engine is stable
+Do not trust “it worked once” as proof
+
+One important correction to the earlier spec: do not use FastAPI BackgroundTasks as the primary job system. FastAPI’s background tasks are for work that runs after returning a response; for this app you want a dedicated worker/scheduler process with persistent queue state, retries, and restart safety. Also, Smartlead’s current API surface explicitly covers campaigns, sending limits/schedules, and webhooks/replies, Apollo’s API covers people search plus people/company enrichment, and Google Calendar appointment schedules provide shareable booking pages. That combination is why the control-plane architecture is the right first move.
+
+Recommended execution model
+Sprint length
+
+Use 2-week sprints.
+
+Team assumption
+
+Minimum viable build team:
+
+1 senior full-stack engineer owning architecture and backend
+1 frontend engineer who can also do integration/UI plumbing
+1 QA/automation engineer part-time minimum
+1 product owner/operator which can be you
+
+If it is just one strong engineer plus you, this still works, but the timeline stretches and QA discipline becomes even more important.
+
+Release philosophy
+Sprints 1–4: foundation
+Sprints 5–7: usable outbound machine
+Sprints 8–10: hardening into enterprise-grade internal tool
+No feature creep after Sprint 7
+Sprints 8–10 are for reliability, correctness, and release readiness
+Sprint plan
+Sprint 0 — Architecture lock, repo standards, and execution contract
+
+Duration: 3–5 days
+Goal: remove ambiguity before code scale begins
+
+Build
+Freeze product scope for v1
+Freeze system boundaries:
+local UI
+local API
+dedicated worker
+local DB
+provider adapters
+Freeze canonical entities and states
+Freeze event/state transition rules
+Freeze Definition of Done for all future sprints
+Create repo structure
+Create coding standards
+Create branching and release policy
+Create architecture decision records
+Required artifacts
+PRD frozen
+system architecture diagram
+sequence/state diagrams
+canonical database ERD
+API contract skeleton
+adapter interface definitions
+testing strategy document
+logging and audit policy
+security and secrets policy
+Exit criteria
+no unresolved architecture disputes
+no “we’ll figure it out later” around queue state, suppression, or provider adapters
+all entities/states approved
+CI pipeline skeleton exists
+Hard rule
+
+No UI polish work. No provider coding yet.
+
+Sprint 1 — Local app shell and launch system
+
+Duration: 2 weeks
+Goal: produce a clean local-first application shell that launches reliably from any folder
+
+Build
+frontend app shell
+backend app shell
+worker process shell
+launcher
+config loader
+relative-path runtime resolution
+local data directory strategy
+health checks
+startup diagnostics
+structured logging
+environment validation screen
+Features
+double-click launch behavior
+backend and worker start independently but coordinated
+browser opens to localhost
+startup error page if configuration/runtime fails
+settings page scaffold
+health page
+version info and diagnostics panel
+Tests
+launch app from repo root
+launch app from moved folder
+launch app via shortcut from outside folder
+startup with missing config
+startup with corrupted DB
+startup with occupied default port
+clean shutdown and restart
+Exit criteria
+app can be moved anywhere and still launches
+no hardcoded paths
+logs are written predictably
+worker and backend are independently observable
+local packaging strategy is proven, not theoretical
+Deliverable
+
+A dead-simple but production-shaped local app shell.
+
+Sprint 2 — Core domain model, database, and migrations
+
+Duration: 2 weeks
+Goal: lock the real data model and state transitions
+
+Build
+SQLAlchemy models
+Alembic migrations
+repositories/services
+enum/state definitions
+audit event framework
+provider mapping table
+suppression model
+generation artifact model
+queue and thread models
+campaign audience snapshot model
+Must-have entities
+Lead
+Company
+List
+Campaign
+Sequence
+SequenceStep
+Template
+TemplateVariant
+OfferProfile
+VerticalPlaybook
+QueuedMessage
+SentMessage
+Reply
+Thread
+ProviderAccount
+ProviderMapping
+BookingLink
+SuppressionEntry
+AuditEvent
+GenerationArtifact
+WebhookEvent
+Tests
+migration up/down
+entity creation/update/delete constraints
+state transition tests
+transactional rollback tests
+unique constraint tests
+audit event emission tests
+Exit criteria
+schema stable enough to support next 3 sprints without redesign
+all state transitions explicit and tested
+no hidden JSON blobs for core logic unless justified
+audit trail exists for all major mutations
+Deliverable
+
+Production-grade persistence layer.
+
+Sprint 3 — Lead ingestion, normalization, dedupe, and list management
+
+Duration: 2 weeks
+Goal: create a trustworthy master lead system
+
+Build
+CSV/XLSX import
+manual lead entry/edit
+Apollo adapter v1
+import jobs
+normalization pipeline
+dedupe engine
+conflict review UI
+tagging
+saved filters
+audience/list membership
+Apollo scope
+
+Use Apollo for:
+
+people search
+people enrichment
+org enrichment where needed
+Apollo’s search and enrichment endpoints are already documented for these workflows, so this sprint should target those surfaces only.
+Dedupe rules
+exact email
+normalized domain
+name + company similarity
+external source ID
+manual conflict flagging
+Tests
+import malformed CSV
+import duplicate CSV rows
+import Apollo results
+merge house list + Apollo list
+dedupe false-positive tests
+dedupe false-negative tests
+saved filter correctness tests
+Exit criteria
+user can build a clean target audience from Apollo + local lists
+dedupe is auditable
+nothing is silently discarded
+import summaries are correct
+Deliverable
+
+Reliable local lead warehouse.
+
+Sprint 4 — Templates, playbooks, AI generation, and validation
+
+Duration: 2 weeks
+Goal: build the message generation system without letting AI turn it into garbage
+
+Build
+template CRUD
+template block model
+static/merged/AI block separation
+offer profiles
+vertical playbooks
+banned phrase rules
+allowed claim rules
+deterministic rendering mode
+AI generation service
+generation artifact storage
+regeneration controls
+validation layer
+AI outputs allowed
+opener
+custom first sentence
+subject variants
+short company-specific hooks
+constrained reply drafts later
+AI outputs blocked
+invented results
+invented clients
+guarantees
+unsupported claims
+long-form rambling
+Tests
+render templates with missing variables
+validate banned phrase blocking
+validate deterministic mode
+ensure every generated output is stored as artifact
+validate risk flagging
+Exit criteria
+generated content is inspectable, bounded, and reproducible
+every message can be traced back to template + artifact
+AI can be disabled selectively without breaking the campaign
+Deliverable
+
+A controlled generation engine, not an LLM toy.
+
+Sprint 5 — Campaign builder and queue preview
+
+Duration: 2 weeks
+Goal: create the heart of the product: campaign assembly and exact preview
+
+Build
+campaign builder UI
+campaign parameter model
+audience snapshot creation
+sequence builder
+send windows
+quiet hours
+approval mode
+reply mode
+provider pool selection
+queue generation engine
+queue preview screen
+manual edit/regenerate flow
+risk flags in preview
+Queue preview must show
+recipient
+company
+subject
+body
+static sections
+AI sections
+send time
+sending account
+sequence step
+risk flags
+Tests
+preview accuracy tests
+queue generation for multi-step sequence
+quiet hour adjustments
+provider account assignment
+manual edits preserved
+regenerate only AI block, not full message
+Exit criteria
+operator can trust preview as the source of truth
+queue records are created before launch
+launch-ready state is explicit
+Deliverable
+
+First truly useful version of the app.
+
+Sprint 6 — Scheduler, worker, state machine, and restart safety
+
+Duration: 2 weeks
+Goal: make the engine reliable under real operating conditions
+
+Build
+dedicated worker loop
+job scheduler
+queue dispatcher
+retry framework
+idempotency strategy
+lock/claim mechanism for jobs
+restart recovery
+circuit breaker framework
+event bus or domain-event service
+dead-letter handling for failed jobs
+Must solve here
+duplicate send prevention
+stop-on-reply gating
+suppression recheck at dispatch time
+job visibility and retries
+crash recovery
+Tests
+app killed mid-run
+worker restart mid-queue
+duplicate dispatch race tests
+retry behavior
+suppression applied after queue creation but before send
+pause/resume campaign under load
+Exit criteria
+no duplicate sends after restart
+scheduler is deterministic and restart-safe
+failed jobs are observable and recoverable
+Deliverable
+
+A serious execution engine.
+
+Sprint 7 — Sending adapter integration and end-to-end outbound execution
+
+Duration: 2 weeks
+Goal: complete real outbound execution through provider integration
+
+Build
+Smartlead adapter v1
+provider account sync
+campaign push
+status sync
+webhook ingestion framework
+fallback polling
+mapping of provider states to internal states
+provider error normalization
+booking-link injection
+footer/signature injection
+Why Smartlead first
+
+This is the correct first adapter because its current docs expose campaigns, campaign data, schedule/sending-limit surfaces, and webhook/reply-oriented automation features, which align with this product’s control-plane model.
+
+Google Calendar integration
+
+Do not overbuild this. Use booking links only. Google Calendar appointment schedules already provide booking pages and shareable links.
+
+Tests
+send single-step campaign
+send multi-step campaign
+provider status update roundtrip
+failed provider push handling
+webhook replay/idempotency
+booking link merge correctness
+footer compliance injection
+Exit criteria
+real campaigns can be launched end-to-end
+provider state maps cleanly into internal state
+webhook ingestion is reliable
+booking flow works
+Deliverable
+
+Real outbound execution.
+
+Sprint 8 — Replies, suppression, stop logic, and constrained response engine
+
+Duration: 2 weeks
+Goal: make the system safe and usable after recipients start answering
+
+Build
+reply ingestion
+thread resolution
+reply classification engine
+reply policy engine
+stop-on-reply logic
+suppression engine
+unsubscribe handling
+wrong-person handling
+out-of-office handling
+suggested reply drafting
+confidence scoring
+human-review inbox
+realistic send-delay logic for replies
+Initial policy
+
+Auto-send replies:
+
+disabled by default
+
+System may auto-handle:
+
+unsubscribe
+wrong person
+out of office
+sequence stop
+
+System may draft only:
+
+soft objection
+basic interest
+referral
+scheduling nudge
+Tests
+reply to first message
+reply to later sequence step
+unsubscribe phrase detection
+ambiguous reply routing
+human review escalation
+suppression propagation across campaigns
+Exit criteria
+no lead continues receiving outbound after unsubscribe
+no replied lead continues sequence unless policy allows
+reply workflow is bounded and inspectable
+Deliverable
+
+Safe post-send behavior.
+
+Sprint 9 — Analytics, auditability, exports, and operator tooling
+
+Duration: 2 weeks
+Goal: make the product operationally intelligible and accountable
+
+Build
+dashboard metrics
+campaign analytics
+step analytics
+provider-account analytics
+lead event history
+audit event browser
+export tools
+search across logs/events
+diagnostics panel
+config export/import without secrets
+campaign clone/versioning support
+Analytics minimums
+queued
+sent
+failed
+bounced
+replied
+interested
+unsubscribed
+booked
+campaign state over time
+template performance
+step performance
+Tests
+metrics accuracy tests
+audit completeness tests
+export correctness tests
+event timeline integrity tests
+Exit criteria
+operator can answer “what happened?” for any lead or campaign
+metrics reconcile with provider state
+audit log is complete enough for debugging and trust
+Deliverable
+
+Operations-grade visibility.
+
+Sprint 10 — Hardening, packaging, release candidate, and failure testing
+
+Duration: 2 weeks
+Goal: turn the working system into a bulletproof internal application
+
+Build
+packaged local release build
+installer/portable distribution strategy
+data backup/restore
+corruption recovery path
+migration safety checks
+final error handling pass
+final security pass
+final performance pass
+release checklist
+upgrade checklist
+support diagnostics bundle
+Hardening tests
+full clean install
+upgrade from prior DB version
+corrupted queue row recovery
+network outage during provider push
+invalid API key behavior
+provider 500/429 behavior
+machine reboot during campaign
+large dataset test
+long-running worker soak test
+Exit criteria
+release candidate can be handed to operator and run safely
+startup, crash, and recovery paths are proven
+release checklist passes
+no P1 or P2 defects open
+Deliverable
+
+Enterprise-grade internal release candidate.
+
+Cross-cutting tracks that run every sprint
+1. QA automation track
+
+This is not optional.
+
+Every sprint must add or expand:
+
+unit tests
+integration tests
+regression tests
+E2E tests where relevant
+Required test bars by sprint stage
+Sprints 1–3: 70%+ core-domain coverage
+Sprints 4–7: all critical path behavior covered
+Sprints 8–10: regression suite required for every bug fix
+2. Security track
+
+Every sprint:
+
+secrets never in logs
+config redaction
+dependency review
+local storage review
+provider-token handling review
+3. Architecture hygiene track
+
+Every sprint:
+
+no provider logic in domain services
+no UI components with business rules that belong server-side
+no giant “utils” dumping ground
+no queue logic outside queue services
+no undocumented state transitions
+4. Documentation track
+
+Every sprint must update:
+
+API contracts
+ADRs
+migration notes
+operator docs
+troubleshooting guide
+test plan
+Release gates
+Gate A — Foundation complete
+
+Passed only if Sprints 1–4 are complete and:
+
+app launches locally from moved folder
+schema is stable
+imports work
+templates work
+AI generation is bounded
+no provider integration yet required
+Gate B — Functional outbound complete
+
+Passed only if Sprints 5–7 are complete and:
+
+campaign builder works
+preview is exact
+scheduler is reliable
+real campaigns can launch
+booking links work
+no duplicate sends
+Gate C — Safe operations complete
+
+Passed only if Sprint 8 is complete and:
+
+replies are classified
+unsubscribe works
+stop-on-reply works
+suppression propagates correctly
+Gate D — Production-ready internal release
+
+Passed only if Sprints 9–10 are complete and:
+
+analytics reconcile
+audit trail is usable
+packaging is stable
+recovery paths are tested
+no critical defects remain
+Definition of Done for every sprint
+
+A sprint is not done unless all of the following are true:
+
+Code is merged to main
+Tests pass in CI
+Acceptance criteria are demonstrated
+Documentation is updated
+Logs and error messages are sane
+No placeholder behavior remains in shipped scope
+No hidden manual step exists outside the sprint spec
+Product owner can actually use the delivered flow
+New behavior is covered by regression tests
+No “temporary” architecture shortcuts are quietly left behind
+Recommended timeline
+Best-case with 2 strong engineers + QA support
+Sprint 0: 1 week
+Sprints 1–10: 20 weeks
+Total: ~21 weeks
+Realistic with 1 senior engineer + partial frontend support
+Sprint 0: 1 week
+Sprints 1–10: 24–28 weeks
+Total: ~25–29 weeks
+Fastest sane MVP cut
+
+If you want the shortest path to useful without damaging the architecture:
+
+finish Sprints 0–7 first
+that gets you a serious outbound machine
+then do Sprints 8–10 without cutting corners
+What to cut if time slips
+
+Cut in this order:
+
+advanced analytics views
+reply auto-send
+template performance scoring
+config import/export niceties
+advanced audit browsing UI
+
+Do not cut:
+
+queue preview accuracy
+restart safety
+suppression logic
+stop-on-reply
+provider adapter abstraction
+migrations
+structured logging
+packaging/launch reliability
+Biggest failure modes to prevent
+1. Wrong architecture
+
+If provider logic leaks into the core app, the codebase will rot fast.
+
+2. Preview mismatch
+
+If preview does not match what gets sent, operator trust is dead.
+
+3. Duplicate sends
+
+One duplicate-send incident can poison the whole product.
+
+4. Bad reply automation
+
+If the bot says something reckless to a law firm or medical practice, you create real business damage.
+
+5. Path/install fragility
+
+If the local app only works on one machine in one folder, it failed the core requirement.
+
+6. False speed
+
+If you rush provider integration before queue/state correctness, you will spend months debugging nonsense.
+
+Final recommended build order in one line
+
+Lock architecture → build local shell → build data model → build lead system → build templates/AI → build campaign preview → build scheduler → integrate provider → add reply safety → harden and package.

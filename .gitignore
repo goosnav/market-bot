@@ -1,0 +1,11 @@
+# Python runtime
+__pycache__/
+*.pyc
+
+# Local runtime data
+data/*
+!data/.gitignore
+
+# Optional local config overrides
+config/settings.local.json
+
