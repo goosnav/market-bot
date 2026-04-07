@@ -104,7 +104,7 @@ class MarketBotRequestHandler(BaseHTTPRequestHandler):
             "/api/v1/campaigns/preview/regenerate": self.api_campaigns_preview_regenerate,
             "/api/v1/campaigns/preview/approve": self.api_campaigns_preview_approve,
         }
-        routes = get_routes if method == "GET" else post_routes if method == "POST" else {}
+        routes = get_routes if method in {"GET", "HEAD"} else post_routes if method == "POST" else {}
         handler = routes.get(parsed.path)
         if not handler:
             self.send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": f"Unknown endpoint: {parsed.path}"}, include_body)
@@ -448,7 +448,7 @@ def is_safe_child(candidate: Path, parent: Path) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the Market Bot Sprint 5 backend shell.")
+    parser = argparse.ArgumentParser(description="Run the Market Bot Sprint 6 backend shell.")
     parser.add_argument("--app-root", default=None)
     parser.add_argument("--config", default=None)
     parser.add_argument("--host", default=None)

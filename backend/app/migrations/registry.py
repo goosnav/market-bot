@@ -832,6 +832,56 @@ DROP INDEX IF EXISTS campaign_audience_snapshots_campaign_lookup;
 DROP INDEX IF EXISTS queued_messages_campaign_schedule_lookup;
 """,
     ),
+    MigrationDefinition(
+        version="0006_sprint_6_execution_engine",
+        description="Add worker claim, retry, and dead-letter persistence for restart-safe outbound execution.",
+        up_sql="""
+ALTER TABLE queued_messages ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0);
+ALTER TABLE queued_messages ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1);
+ALTER TABLE queued_messages ADD COLUMN next_attempt_at TEXT;
+ALTER TABLE queued_messages ADD COLUMN claimed_at TEXT;
+ALTER TABLE queued_messages ADD COLUMN claimed_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE queued_messages ADD COLUMN claim_token TEXT;
+ALTER TABLE queued_messages ADD COLUMN claim_expires_at TEXT;
+ALTER TABLE queued_messages ADD COLUMN last_attempt_at TEXT;
+ALTER TABLE queued_messages ADD COLUMN last_error_code TEXT NOT NULL DEFAULT '';
+ALTER TABLE queued_messages ADD COLUMN last_error_detail TEXT NOT NULL DEFAULT '';
+ALTER TABLE queued_messages ADD COLUMN dead_lettered_at TEXT;
+
+CREATE TABLE IF NOT EXISTS dead_letter_jobs (
+    id INTEGER PRIMARY KEY,
+    queued_message_id INTEGER NOT NULL REFERENCES queued_messages(id) ON DELETE CASCADE,
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    provider_account_id INTEGER REFERENCES provider_accounts(id) ON DELETE SET NULL,
+    job_kind TEXT NOT NULL DEFAULT 'queued_message_dispatch',
+    reason_code TEXT NOT NULL,
+    reason_detail TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    resolved_at TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(queued_message_id)
+);
+
+CREATE INDEX IF NOT EXISTS queued_messages_due_dispatch_lookup
+    ON queued_messages(state, scheduled_for, claim_expires_at, dead_lettered_at, id);
+CREATE INDEX IF NOT EXISTS queued_messages_provider_failure_lookup
+    ON queued_messages(provider_account_id, state, last_attempt_at, last_error_code);
+CREATE INDEX IF NOT EXISTS sent_messages_provider_sent_lookup
+    ON sent_messages(provider_account_id, sent_at, id);
+CREATE INDEX IF NOT EXISTS replies_campaign_lead_lookup
+    ON replies(campaign_id, lead_id, received_at, id);
+CREATE INDEX IF NOT EXISTS dead_letter_jobs_recent_lookup
+    ON dead_letter_jobs(created_at DESC, id DESC);
+""",
+        down_sql="""
+DROP INDEX IF EXISTS dead_letter_jobs_recent_lookup;
+DROP INDEX IF EXISTS replies_campaign_lead_lookup;
+DROP INDEX IF EXISTS sent_messages_provider_sent_lookup;
+DROP INDEX IF EXISTS queued_messages_provider_failure_lookup;
+DROP INDEX IF EXISTS queued_messages_due_dispatch_lookup;
+DROP TABLE IF EXISTS dead_letter_jobs;
+""",
+    ),
 ]
 
 LATEST_MIGRATION_VERSION = MIGRATIONS[-1].version

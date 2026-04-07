@@ -9,6 +9,7 @@ from backend.app.repositories.builder import (
     SequenceRepository,
 )
 from backend.app.repositories.campaigns import CampaignRepository
+from backend.app.repositories.execution import ExecutionRepository
 from backend.app.repositories.leads import CompanyRepository, LeadRepository
 from backend.app.repositories.queue import QueuedMessageRepository, ReplyRepository
 from backend.app.repositories.studio import (
@@ -27,6 +28,7 @@ __all__ = [
     "CampaignPreviewRepository",
     "CampaignRepository",
     "CompanyRepository",
+    "ExecutionRepository",
     "GenerationArtifactRepository",
     "ImportJobRepository",
     "LeadRepository",

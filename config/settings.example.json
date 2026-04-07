@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Market Bot",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "environment": "local",
     "support_email": "ops@example.com"
   },
@@ -53,6 +53,12 @@
   "worker": {
     "heartbeat_interval_seconds": 2,
     "stale_after_seconds": 8,
-    "shutdown_grace_seconds": 5
+    "shutdown_grace_seconds": 5,
+    "poll_interval_seconds": 2,
+    "claim_ttl_seconds": 12,
+    "batch_size": 8,
+    "retry_backoff_seconds": 300,
+    "circuit_breaker_threshold": 3,
+    "circuit_breaker_cooldown_seconds": 900
   }
 }

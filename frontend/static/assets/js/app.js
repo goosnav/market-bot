@@ -448,12 +448,16 @@ function splitListInput(value) {
     .filter(Boolean);
 }
 
+function sumCampaignMetric(campaigns, key) {
+  return (campaigns.campaigns || []).reduce((total, item) => total + Number(item?.[key] || 0), 0);
+}
+
 function renderCampaignSummary(node, campaigns = {}) {
   const cards = [
     { label: "Campaigns", value: campaigns.campaign_count ?? 0 },
     { label: "Provider accounts", value: campaigns.provider_account_count ?? 0 },
-    { label: "Latest campaign", value: campaigns.latest_campaign_id ?? "None" },
-    { label: "Preview rows", value: (campaigns.campaigns || []).reduce((total, item) => total + (item.queued_count || 0), 0) },
+    { label: "Sent rows", value: sumCampaignMetric(campaigns, "sent_count") },
+    { label: "Dead letters", value: sumCampaignMetric(campaigns, "dead_letter_count") },
   ];
   node.innerHTML = cards
     .map(
@@ -476,9 +480,12 @@ function renderCampaignPreviewRows(node, items = []) {
           <span>${escapeHtml(`${item.company_name || "Unknown company"} · ${prettyDate(item.scheduled_for)} · ${item.provider_account_name}`)}</span>
           <span>${escapeHtml(`Subject: ${item.subject}`)}</span>
           <span>${escapeHtml(`Body: ${item.body}`)}</span>
+          <span>${escapeHtml(`Attempts: ${item.attempt_count}/${item.max_attempts || 3}`)}</span>
           <span>${escapeHtml(`Static sections: ${(item.static_sections || []).map((section) => section.rendered_text).join(" | ") || "None"}`)}</span>
           <span>${escapeHtml(`AI sections: ${(item.ai_sections || []).map((section) => section.rendered_text).join(" | ") || "None"}`)}</span>
           <span>${escapeHtml(`Risk flags: ${(item.risk_flags || []).length}`)}</span>
+          <span>${escapeHtml(`Last error: ${item.last_error_detail || item.last_error_code || "None"}`)}</span>
+          <span>${escapeHtml(`Next retry: ${item.next_attempt_at ? prettyDate(item.next_attempt_at) : "Not scheduled"}`)}</span>
         </article>
       `,
     )
@@ -543,6 +550,28 @@ function render() {
     { label: "Worker PID", value: runtime.worker_status?.pid ? String(runtime.worker_status.pid) : "Unknown" },
     { label: "Last heartbeat", value: prettyDate(runtime.worker_status?.last_heartbeat_at) },
     { label: "Worker database check", value: String(runtime.worker_status?.database_message || "Unknown") },
+    {
+      label: "Last cycle",
+      value: runtime.worker_status?.last_cycle?.completed_at
+        ? prettyDate(runtime.worker_status.last_cycle.completed_at)
+        : "No worker cycle recorded yet",
+    },
+    {
+      label: "Cycle totals",
+      value: runtime.worker_status?.last_cycle
+        ? `claimed ${runtime.worker_status.last_cycle.claimed || 0} · sent ${runtime.worker_status.last_cycle.sent || 0} · retried ${runtime.worker_status.last_cycle.retried || 0} · dead ${runtime.worker_status.last_cycle.dead_lettered || 0}`
+        : "No worker cycle recorded yet",
+    },
+    {
+      label: "Queue states",
+      value: Object.entries(runtime.worker_status?.last_cycle?.execution?.queue_state_counts || {})
+        .map(([name, total]) => `${name} ${total}`)
+        .join(" · ") || "No queued rows",
+    },
+    {
+      label: "Worker errors",
+      value: runtime.worker_status?.last_error || "None",
+    },
   ]);
 
   renderFailedChecks(nodes.failedChecks, runtime.failed_checks || state.ready?.payload?.failed_checks || []);
@@ -610,7 +639,7 @@ function render() {
     nodes.campaignList,
     (campaigns.campaigns || []).map((campaign) => ({
       label: `${campaign.name} · ${campaign.status}`,
-      value: `audience ${campaign.audience_count} · queued ${campaign.queued_count} · blocked ${campaign.blocked_count} · approved ${campaign.approved_count}`,
+      value: `audience ${campaign.audience_count} · queued ${campaign.queued_count} · sent ${campaign.sent_count || 0} · active queue ${(campaign.scheduled_count || 0) + (campaign.dispatched_count || 0)} · dead ${campaign.dead_letter_count || 0}`,
     })),
   );
   renderCampaignPreviewRows(nodes.campaignPreviewRows, campaignPreview.items || []);
@@ -621,7 +650,7 @@ function render() {
     ? `Last preview updated ${prettyDate((studio.recent_artifacts || [])[0]?.updated_at)}`
     : "No generation artifacts yet.";
   nodes.campaignNotice.textContent = campaignPreview.campaign
-    ? `Campaign ${campaignPreview.campaign.name} · ${campaignPreview.launch_ready ? "launch-ready" : "preview only"}`
+    ? `Campaign ${campaignPreview.campaign.name} · ${campaignPreview.campaign.status} · sent ${campaignPreview.campaign.sent_count || 0} · dead letters ${campaignPreview.campaign.dead_letter_count || 0}`
     : "No campaign previews yet.";
 
   fillSelect(nodes.renderLeadId, studio.lead_preview || [], {

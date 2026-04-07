@@ -18,7 +18,7 @@ from backend.app.tests.support import DatabaseTestCase
 
 class MigrationTests(DatabaseTestCase):
     def test_bootstrap_applies_latest_domain_schema(self) -> None:
-        summary = bootstrap_database(self.database_path, "0.5.0")
+        summary = bootstrap_database(self.database_path, "0.6.0")
         self.assertEqual(summary["schema_version"], LATEST_MIGRATION_VERSION)
 
         with connect_database(self.database_path) as connection:
@@ -61,6 +61,23 @@ class MigrationTests(DatabaseTestCase):
         self.assertIn("template_variant_id", artifact_columns)
         self.assertIn("lead_id", artifact_columns)
         self.assertIn("source_artifact_id", artifact_columns)
+
+    def test_sprint_6_migration_adds_execution_columns_and_dead_letter_table(self) -> None:
+        with connect_database(self.database_path) as connection:
+            queued_columns = {
+                row["name"]: row
+                for row in connection.execute("PRAGMA table_info(queued_messages)").fetchall()
+            }
+            table_names = inspect_table_names(connection)
+
+        self.assertIn("attempt_count", queued_columns)
+        self.assertIn("max_attempts", queued_columns)
+        self.assertIn("next_attempt_at", queued_columns)
+        self.assertIn("claimed_at", queued_columns)
+        self.assertIn("claim_expires_at", queued_columns)
+        self.assertIn("last_error_code", queued_columns)
+        self.assertIn("dead_lettered_at", queued_columns)
+        self.assertIn("dead_letter_jobs", table_names)
 
     def test_unique_step_order_constraint_is_enforced(self) -> None:
         with connect_database(self.database_path) as connection:

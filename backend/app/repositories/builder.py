@@ -223,9 +223,14 @@ class CampaignPreviewRepository(SqliteRepository):
                 vertical_playbooks.name AS vertical_playbook_name,
                 COUNT(DISTINCT campaign_audience_snapshots.id) AS audience_count,
                 COUNT(DISTINCT queued_messages.id) AS queued_count,
-                SUM(CASE WHEN queued_messages.state = 'blocked' THEN 1 ELSE 0 END) AS blocked_count,
-                SUM(CASE WHEN queued_messages.state = 'approved' THEN 1 ELSE 0 END) AS approved_count,
-                SUM(CASE WHEN queued_messages.state = 'rendered' THEN 1 ELSE 0 END) AS rendered_count
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'blocked' THEN queued_messages.id END) AS blocked_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'approved' THEN queued_messages.id END) AS approved_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'rendered' THEN queued_messages.id END) AS rendered_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'scheduled' THEN queued_messages.id END) AS scheduled_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'dispatched' THEN queued_messages.id END) AS dispatched_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'sent' THEN queued_messages.id END) AS sent_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'suppressed' THEN queued_messages.id END) AS suppressed_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.dead_lettered_at IS NOT NULL THEN queued_messages.id END) AS dead_letter_count
             FROM campaigns
             LEFT JOIN offer_profiles ON offer_profiles.id = campaigns.offer_profile_id
             LEFT JOIN vertical_playbooks ON vertical_playbooks.id = campaigns.vertical_playbook_id
@@ -245,9 +250,14 @@ class CampaignPreviewRepository(SqliteRepository):
                 vertical_playbooks.name AS vertical_playbook_name,
                 COUNT(DISTINCT campaign_audience_snapshots.id) AS audience_count,
                 COUNT(DISTINCT queued_messages.id) AS queued_count,
-                SUM(CASE WHEN queued_messages.state = 'blocked' THEN 1 ELSE 0 END) AS blocked_count,
-                SUM(CASE WHEN queued_messages.state = 'approved' THEN 1 ELSE 0 END) AS approved_count,
-                SUM(CASE WHEN queued_messages.state = 'rendered' THEN 1 ELSE 0 END) AS rendered_count
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'blocked' THEN queued_messages.id END) AS blocked_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'approved' THEN queued_messages.id END) AS approved_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'rendered' THEN queued_messages.id END) AS rendered_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'scheduled' THEN queued_messages.id END) AS scheduled_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'dispatched' THEN queued_messages.id END) AS dispatched_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'sent' THEN queued_messages.id END) AS sent_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.state = 'suppressed' THEN queued_messages.id END) AS suppressed_count,
+                COUNT(DISTINCT CASE WHEN queued_messages.dead_lettered_at IS NOT NULL THEN queued_messages.id END) AS dead_letter_count
             FROM campaigns
             LEFT JOIN offer_profiles ON offer_profiles.id = campaigns.offer_profile_id
             LEFT JOIN vertical_playbooks ON vertical_playbooks.id = campaigns.vertical_playbook_id

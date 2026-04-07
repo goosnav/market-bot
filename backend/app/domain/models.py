@@ -223,3 +223,29 @@ class CampaignAudienceSnapshotCreate:
     lead_id: int
     snapshot_json: str
     company_id: int | None = None
+
+
+@dataclass(frozen=True)
+class SentMessageCreate:
+    queued_message_id: int
+    provider_name: str
+    sent_at: str
+    subject: str
+    body: str
+    thread_id: int | None = None
+    provider_account_id: int | None = None
+    provider_message_id: str | None = None
+    external_campaign_id: str | None = None
+    delivery_state: str = "sent"
+
+
+@dataclass(frozen=True)
+class DeadLetterJobCreate:
+    queued_message_id: int
+    reason_code: str
+    created_at: str
+    payload_json: str = "{}"
+    campaign_id: int | None = None
+    provider_account_id: int | None = None
+    job_kind: str = "queued_message_dispatch"
+    reason_detail: str = ""

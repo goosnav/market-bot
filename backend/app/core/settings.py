@@ -80,6 +80,12 @@ class WorkerConfig:
     heartbeat_interval_seconds: int
     stale_after_seconds: int
     shutdown_grace_seconds: int
+    poll_interval_seconds: int
+    claim_ttl_seconds: int
+    batch_size: int
+    retry_backoff_seconds: int
+    circuit_breaker_threshold: int
+    circuit_breaker_cooldown_seconds: int
 
 
 @dataclass(frozen=True)
@@ -166,7 +172,13 @@ SETTINGS_SCHEMA: dict[str, Any] = {
         "fields": {
             "heartbeat_interval_seconds": "Worker heartbeat cadence.",
             "stale_after_seconds": "Maximum age for a healthy worker heartbeat.",
-            "shutdown_grace_seconds": "Grace period before the launcher force-stops a child process."
+            "shutdown_grace_seconds": "Grace period before the launcher force-stops a child process.",
+            "poll_interval_seconds": "How often the worker polls for due queue work.",
+            "claim_ttl_seconds": "How long a claimed dispatch job stays owned before recovery releases it.",
+            "batch_size": "Maximum number of queued rows the worker claims in one cycle.",
+            "retry_backoff_seconds": "Base backoff used for transient dispatch retries.",
+            "circuit_breaker_threshold": "Recent provider failure count that opens the local dispatch circuit.",
+            "circuit_breaker_cooldown_seconds": "Cooldown before a tripped provider circuit is retried."
         }
     }
 }
@@ -259,6 +271,18 @@ def validate_settings(settings: SettingsBundle) -> None:
         raise SettingsError("worker.heartbeat_interval_seconds must be positive.")
     if settings.worker.stale_after_seconds <= settings.worker.heartbeat_interval_seconds:
         raise SettingsError("worker.stale_after_seconds must be greater than the heartbeat interval.")
+    if settings.worker.poll_interval_seconds <= 0:
+        raise SettingsError("worker.poll_interval_seconds must be positive.")
+    if settings.worker.claim_ttl_seconds <= settings.worker.poll_interval_seconds:
+        raise SettingsError("worker.claim_ttl_seconds must be greater than worker.poll_interval_seconds.")
+    if settings.worker.batch_size <= 0:
+        raise SettingsError("worker.batch_size must be positive.")
+    if settings.worker.retry_backoff_seconds <= 0:
+        raise SettingsError("worker.retry_backoff_seconds must be positive.")
+    if settings.worker.circuit_breaker_threshold <= 0:
+        raise SettingsError("worker.circuit_breaker_threshold must be positive.")
+    if settings.worker.circuit_breaker_cooldown_seconds <= 0:
+        raise SettingsError("worker.circuit_breaker_cooldown_seconds must be positive.")
 
     for field_name, relative_value in asdict(settings.paths).items():
         if field_name == "frontend_dir":
@@ -281,4 +305,3 @@ def redact_secret(value: str) -> str:
     if len(value) <= 4:
         return "****"
     return f"{value[:2]}***{value[-2:]}"
-

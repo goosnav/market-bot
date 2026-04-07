@@ -78,6 +78,9 @@ QUEUED_MESSAGE_TRANSITIONS: dict[QueuedMessageState, set[QueuedMessageState]] = 
     QueuedMessageState.DISPATCHED: {
         QueuedMessageState.SENT,
         QueuedMessageState.FAILED,
+        QueuedMessageState.SCHEDULED,
+        QueuedMessageState.CANCELED,
+        QueuedMessageState.SUPPRESSED,
         QueuedMessageState.BLOCKED,
     },
     QueuedMessageState.SENT: set(),

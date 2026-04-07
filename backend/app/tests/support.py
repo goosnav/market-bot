@@ -17,7 +17,7 @@ class DatabaseTestCase(unittest.TestCase):
         super().setUp()
         self._tempdir = tempfile.TemporaryDirectory()
         self.database_path = Path(self._tempdir.name) / "test.db"
-        bootstrap_database(self.database_path, "0.5.0")
+        bootstrap_database(self.database_path, "0.6.0")
 
     def tearDown(self) -> None:
         self._tempdir.cleanup()
