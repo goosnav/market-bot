@@ -1,10 +1,9 @@
 [project]
 name = "market-bot"
-version = "0.1.0"
-description = "Portable local-first outbound marketing workstation shell"
+version = "0.2.0"
+description = "Portable local-first outbound marketing workstation with Sprint 2 persistence layer"
 requires-python = ">=3.12"
 
 [tool.market-bot]
-sprint = "1"
-stack_rationale = "zero-dependency sprint-1 runtime for portability and no hidden bootstrap"
-
+sprint = "2"
+stack_rationale = "dependency-free sprint-2 persistence layer with versioned SQLite migrations and explicit state machines"

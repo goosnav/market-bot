@@ -269,6 +269,7 @@ function render() {
     { label: "App", value: `${runtime.app?.name || "Market Bot"} ${runtime.app?.sprint || ""}`.trim() },
     { label: "Started", value: prettyDate(runtime.server?.started_at || startup.started_at) },
     { label: "Launcher URL", value: startup.launcher_url || "Not recorded yet" },
+    { label: "Schema version", value: runtime.database?.schema_version || "Unknown" },
     { label: "Config path", value: runtime.config_path || "Unknown" },
   ]);
 
@@ -280,6 +281,7 @@ function render() {
     { label: "Live endpoint", value: state.live?.status ? `HTTP ${state.live.status}` : "Unavailable" },
     { label: "Ready endpoint", value: state.ready?.status ? `HTTP ${state.ready.status}` : "Unavailable" },
     { label: "Database", value: runtime.database?.message || "Unknown" },
+    { label: "Applied migrations", value: String(runtime.database?.applied_migrations || 0) },
     { label: "Backend PID", value: runtime.server?.pid ? String(runtime.server.pid) : "Unknown" },
   ]);
 

@@ -1,11 +1,11 @@
 {
   "name": "market-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "test:backend": "python3 -m unittest discover -s backend/app/tests -p 'test_*.py'",
     "test:frontend": "node --test frontend/tests/*.test.mjs",
     "test:links": "node scripts/validate-static.mjs"
   }
 }
-

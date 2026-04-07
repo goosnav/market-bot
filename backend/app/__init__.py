@@ -1,5 +1,5 @@
 """Application runtime metadata."""
 
 APP_NAME = "Market Bot"
-APP_VERSION = "0.1.0"
-SPRINT_VERSION = "sprint-1"
+APP_VERSION = "0.2.0"
+SPRINT_VERSION = "sprint-2"

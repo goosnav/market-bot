@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Market Bot",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "environment": "local",
     "support_email": "ops@example.com"
   },
@@ -56,4 +56,3 @@
     "shutdown_grace_seconds": 5
   }
 }
-
